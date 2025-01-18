@@ -1,12 +1,12 @@
 import * as usersRepo from './users.repository.js';
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import transporter from '../../config/nodemailer.config.js';
 
 // Register a new user and send confirmation email
 export async function register({ email, password, role }) {
   const confirmationToken = crypto.randomBytes(20).toString('hex');  // Generate a random token for user confirmation
-  const hashedPassword = await bcrypt.hash(password, 10);  // Encrypt password using bcrypt
+  const hashedPassword = await bcryptjs.hash(password, 10);  // Encrypt password using bcryptjs
 
   const newUser = {
     email,

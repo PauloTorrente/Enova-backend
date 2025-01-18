@@ -1,5 +1,5 @@
 import User from '../users/users.model.js';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import transporter from '../../config/nodemailer.config.js';
 import crypto from 'crypto';
@@ -18,7 +18,7 @@ export const register = async ({ email, password, role, firstName, lastName, gen
   }
 
   // Hash the password
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcryptjs.hash(password, 10);
 
   // Generate confirmation token
   const confirmationToken = crypto.randomBytes(20).toString('hex');
@@ -79,7 +79,7 @@ export const login = async (email, password) => {
     throw new Error('Please confirm your email before logging in');
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
+  const isPasswordValid = await bcryptjs.compare(password, user.password);
   if (!isPasswordValid) {
     throw new Error('Invalid credentials');
   }
