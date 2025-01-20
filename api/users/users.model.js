@@ -64,20 +64,20 @@ const User = sequelize.define(
     },
     gender: {
       type: DataTypes.STRING,
-      allowNull: true, // Agora opcional
+      allowNull: true, 
     },
     age: {
       type: DataTypes.INTEGER,
-      allowNull: true, // Agora opcional
+      allowNull: true, 
     },
     phoneNumber: {
       type: DataTypes.STRING,
-      allowNull: true, // Agora opcional
+      allowNull: true, 
       field: 'phone_number',
     },
     city: {
       type: DataTypes.STRING,
-      allowNull: true, // Agora opcional
+      allowNull: true, 
     },
     residentialArea: {
       type: DataTypes.STRING,
@@ -86,7 +86,7 @@ const User = sequelize.define(
     },
     purchaseResponsibility: {
       type: DataTypes.STRING,
-      allowNull: true, // Agora opcional
+      allowNull: true,
       field: 'purchase_responsibility',
     },
     childrenCount: {
@@ -101,7 +101,7 @@ const User = sequelize.define(
     },
     educationLevel: {
       type: DataTypes.STRING,
-      allowNull: true, // Agora opcional
+      allowNull: true, 
       field: 'education_level',
     },
   },

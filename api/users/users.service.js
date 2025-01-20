@@ -21,7 +21,7 @@ export async function register({ email, password, role }) {
   const user = await usersRepo.create(newUser);
 
   // Link for user to confirm their registration
-  const confirmationUrl = `https://example.com/api/users/confirm/${confirmationToken}`;
+  const confirmationUrl = `https://enova-backend.onrender.com/api/users/confirm/${confirmationToken}`;
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
