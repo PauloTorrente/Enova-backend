@@ -1,8 +1,14 @@
-import User from '../users/users.model.js';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import transporter from '../../config/nodemailer.config.js';
-import crypto from 'crypto';
+import User from '../users/users.model.js';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const register = async ({ email, password, role, firstName, lastName, gender, age, phoneNumber, city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel }) => {
   console.log('Attempting to register user with email:', email);
@@ -11,20 +17,15 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     throw new Error('Email, password, first name, and last name are required.');
   }
 
-  // Check if user already exists
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     throw new Error('Email is already registered');
   }
 
-  // Hash the password
   const hashedPassword = await bcryptjs.hash(password, 10);
-
-  // Generate confirmation token
   const confirmationToken = crypto.randomBytes(20).toString('hex');
 
-  // Create a new user
-  const newUser = {
+  const newUser = await User.create({
     email,
     password: hashedPassword,
     role,
@@ -43,30 +44,34 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     isConfirmed: false,
     createdAt: new Date(),
     confirmationToken,
-  };
-
-  // Save user in database
-  const savedUser = await User.create(newUser).catch((error) => {
-    console.error('Error saving the user:', error);
-    throw new Error('Error registering user');
   });
 
-  // Placeholder confirmation URL
+  const templatePath = path.join(__dirname, '../../assets/templates/emailTemplate.html');
+  console.log('Resolved email template path:', templatePath);
+
+  if (!fs.existsSync(templatePath)) {
+    console.error('Email template not found at:', templatePath);
+    throw new Error('Error loading email template');
+  }
+
+  let emailTemplate = fs.readFileSync(templatePath, 'utf-8');
   const confirmationUrl = `https://example.com/api/users/confirm/${confirmationToken}`;
+  emailTemplate = emailTemplate.replace('{{confirmationUrl}}', confirmationUrl);
+
   try {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: 'Confirm Your Registration',
       text: `Please confirm your registration by clicking this link: ${confirmationUrl}`,
-      html: `<b>Please confirm your registration by clicking this link: <a href="${confirmationUrl}">${confirmationUrl}</a></b>`,
+      html: emailTemplate,
     });
     console.log('Confirmation email sent to:', email);
   } catch (error) {
     console.error('Error sending confirmation email:', error);
   }
 
-  return savedUser;
+  return newUser;
 };
 
 export const login = async (email, password) => {
@@ -84,7 +89,6 @@ export const login = async (email, password) => {
     throw new Error('Invalid credentials');
   }
 
-  // Generate tokens
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
     process.env.AUTH_SECRET_KEY,
@@ -104,7 +108,6 @@ export const refreshToken = async (oldRefreshToken) => {
   try {
     const decoded = jwt.verify(oldRefreshToken, process.env.AUTH_SECRET_KEY);
 
-    // Generate a new token (15 minutes) based on the refresh token
     const newToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email, role: decoded.role },
       process.env.AUTH_SECRET_KEY,
@@ -112,7 +115,6 @@ export const refreshToken = async (oldRefreshToken) => {
     );
 
     return newToken;
-
   } catch (error) {
     throw new Error('Invalid refresh token');
   }
