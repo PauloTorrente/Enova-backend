@@ -7,7 +7,7 @@ import transporter from '../../config/nodemailer.config.js';
 import User from '../users/users.model.js';
 import { fileURLToPath } from 'url';
 
-// Get the current file path and directory
+// Get the current file and directory path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -20,19 +20,19 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     throw new Error('Email, password, first name, and last name are required.');
   }
 
-  // Check if user already exists
+  // Check if the user already exists
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
-    throw new Error('Email is already registered');
+    throw new Error('This email is already registered.');
   }
 
-  // Hash the user's password before storing it
+  // Hash the password before saving
   const hashedPassword = await bcryptjs.hash(password, 10);
   
   // Generate a unique confirmation token
   const confirmationToken = crypto.randomBytes(20).toString('hex');
 
-  // Create a new user record in the database
+  // Create a new user in the database
   const newUser = await User.create({
     email,
     password: hashedPassword,
@@ -54,18 +54,18 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     confirmationToken,
   });
 
-  // Load the email template for confirmation
+  // Load the confirmation email template
   const templatePath = path.join(__dirname, '../../assets/templates/emailTemplate.html');
-  console.log('Resolved email template path:', templatePath);
+  console.log('Email template path:', templatePath);
 
   if (!fs.existsSync(templatePath)) {
     console.error('Email template not found at:', templatePath);
-    throw new Error('Error loading email template');
+    throw new Error('Error loading the email template');
   }
 
   // Read the email template file
   let emailTemplate = fs.readFileSync(templatePath, 'utf-8');
-  const confirmationUrl = `https://opinacash.vercel.app/api/users/confirm/${confirmationToken}`;
+  const confirmationUrl = `https://enova-backend.onrender.com/api/users/confirm/${confirmationToken}`;
   emailTemplate = emailTemplate.replace('{{confirmationUrl}}', confirmationUrl);
 
   // Send the confirmation email
@@ -85,57 +85,57 @@ export const register = async ({ email, password, role, firstName, lastName, gen
   return newUser;
 };
 
-// Function to log in a user
+// Function for user login
 export const login = async (email, password) => {
-  // Check if user exists
+  // Check if the user exists
   const user = await User.findOne({ where: { email } });
   if (!user) {
-    throw new Error('Invalid credentials');
+    throw new Error('Invalid credentials.');
   }
 
   // Ensure the user has confirmed their email before logging in
   if (!user.isConfirmed) {
-    throw new Error('Please confirm your email before logging in');
+    throw new Error('Please confirm your email before logging in.');
   }
 
   // Verify the provided password
   const isPasswordValid = await bcryptjs.compare(password, user.password);
   if (!isPasswordValid) {
-    throw new Error('Invalid credentials');
+    throw new Error('Invalid credentials.');
   }
 
   // Generate JWT token for authentication
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET, // Usando JWT_SECRET em vez de AUTH_SECRET_KEY
+    process.env.JWT_SECRET, // Use JWT_SECRET to sign the token
     { expiresIn: '15m' }
   );
 
   // Generate a refresh token for session management
   const refreshToken = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET, // Usando JWT_SECRET em vez de AUTH_SECRET_KEY
+    process.env.JWT_SECRET, // Use JWT_SECRET to sign the token
     { expiresIn: '7d' }
   );
 
   return { token, refreshToken };
 };
 
-// Function to refresh an expired token
+// Function to renew an expired token
 export const refreshToken = async (oldRefreshToken) => {
   try {
     // Verify the old refresh token
-    const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET); // Usando JWT_SECRET em vez de AUTH_SECRET_KEY
+    const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET); // Use JWT_SECRET to validate the token
 
     // Generate a new access token
     const newToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email, role: decoded.role },
-      process.env.JWT_SECRET, // Usando JWT_SECRET em vez de AUTH_SECRET_KEY
+      process.env.JWT_SECRET, // Use JWT_SECRET to sign the new token
       { expiresIn: '15m' }
     );
 
     return newToken;
   } catch (error) {
-    throw new Error('Invalid refresh token');
+    throw new Error('Invalid refresh token.');
   }
 };
