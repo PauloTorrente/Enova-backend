@@ -14,18 +14,25 @@ oauth2Client.setCredentials({
   refresh_token: process.env.SMTP_REFRESH_TOKEN,
 });
 
+async function getAccessToken() {
+  try {
+    const { token } = await oauth2Client.getAccessToken();
+    return token;
+  } catch (error) {
+    console.error('Erro ao obter access token:', error);
+    return null;
+  }
+}
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
+    type: 'OAuth2',
     user: process.env.SMTP_USER,  
-    pass: process.env.SMTP_APP_PASSWORD,  
     clientId: process.env.SMTP_CLIENT_ID,
     clientSecret: process.env.SMTP_CLIENT_SECRET,
     refreshToken: process.env.SMTP_REFRESH_TOKEN,
-    accessToken: async () => {
-      const { token } = await oauth2Client.getAccessToken();
-      return token;
-    },
+    accessToken: getAccessToken,
   },
 });
 
