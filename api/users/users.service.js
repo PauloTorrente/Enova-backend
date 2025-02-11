@@ -16,6 +16,7 @@ export async function register({ email, password, role }) {
     isConfirmed: false,
     confirmationToken,
     createdAt: new Date(),
+    walletBalance: 0,
   };
 
   const user = await usersRepo.create(newUser);
@@ -39,4 +40,10 @@ export const getUserById = async (id) => {
 
 export const updateUser = async (id, updatedData) => {
   return await usersRepo.update(id, updatedData);  // Update user details
+};
+
+export const updateWalletBalance = async (id, amount) => {
+  const user = await usersRepo.getById(id);
+  const newBalance = user.walletBalance + amount;
+  return await usersRepo.updateWalletBalance(id, newBalance);  
 };

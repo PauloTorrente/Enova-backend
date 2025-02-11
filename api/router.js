@@ -1,14 +1,23 @@
 import express from 'express';
-import authRouter from './auth/auth.router.js';  // Roteador de autenticação
-import usersRouter from './users/users.router.js';  // Roteador de usuários
-// Adicione mais roteadores conforme necessário
+import authRouter from './auth/auth.router.js'; // Importing the authentication routes
+import usersRouter from './users/users.router.js'; // Importing the user-related routes
 
+import surveysRouter from './surveys/surveys.router.js'; // Importing the surveys routes
+import resultsRouter from './results/results.router.js'; // Importing the results routes
+
+// Creating an Express Router instance
 const router = express.Router();
 
-// Definindo as rotas
-router.use('/auth', authRouter);  // Roteador de autenticação
-router.use('/users', usersRouter);  // Roteador de usuários
+// The '/surveys' endpoint will use the surveysRouter, which handles all the survey-related routes
+router.use('/surveys', surveysRouter);
 
-// Adicione outras rotas conforme necessário
+// The '/results' endpoint will use the resultsRouter for handling survey responses (user answers)
+router.use('/results', resultsRouter);
+
+// The '/auth' endpoint will use the authRouter for handling login, registration, and authentication
+router.use('/auth', authRouter);
+
+// The '/users' endpoint will use the usersRouter for managing user data
+router.use('/users', usersRouter);
 
 export default router;

@@ -90,3 +90,19 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: 'Error deleting user', error: error.message });
   }
 };
+
+// Get user wallet balance
+export const getWalletBalance = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await usersService.getUserById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ walletBalance: user.walletBalance });
+  } catch (error) {
+    console.error('Error fetching wallet balance:', error);
+    res.status(500).json({ message: 'Error fetching wallet balance', error: error.message });
+  }
+};

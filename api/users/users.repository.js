@@ -31,3 +31,9 @@ export const softDelete = async (id) => {
 export const getByRole = async (role) => {
   return await User.findAll({ where: { role } });
 };
+
+// Update user's wallet balance
+export const updateWalletBalance = async (id, newBalance) => {
+  await User.update({ walletBalance: newBalance }, { where: { id } });
+  return await User.findByPk(id);
+};

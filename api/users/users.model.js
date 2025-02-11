@@ -104,6 +104,21 @@ const User = sequelize.define(
       allowNull: true, 
       field: 'education_level',
     },
+    respondentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'respondents',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+      field: 'respondent_id',
+    },
+    walletBalance: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0, 
+      field: 'wallet_balance',
+    },
   },
   {
     tableName: 'accounts_db',

@@ -4,7 +4,8 @@ import {
   updateUser, 
   confirmUser, 
   getAllUsers, 
-  deleteUser 
+  deleteUser, 
+  getWalletBalance 
 } from './users.controller.js';
 
 const router = express.Router();
@@ -15,5 +16,6 @@ router.get('/:id', getUserById);
 router.patch('/:id', updateUser); 
 router.delete('/:id', deleteUser);
 router.get('/confirm/:token', confirmUser);
+router.get('/:id/wallet', getWalletBalance); 
 
 export default router;
