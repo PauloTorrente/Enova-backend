@@ -108,7 +108,7 @@ export const login = async (email, password) => {
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
     process.env.JWT_SECRET, // Use JWT_SECRET to sign the token
-    { expiresIn: '15m' }
+    { expiresIn: '1h' }
   );
 
   // Generate a refresh token for session management
@@ -131,7 +131,7 @@ export const refreshToken = async (oldRefreshToken) => {
     const newToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email, role: decoded.role },
       process.env.JWT_SECRET, // Use JWT_SECRET to sign the new token
-      { expiresIn: '15m' }
+      { expiresIn: '1h' }
     );
 
     return newToken;
