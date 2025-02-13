@@ -1,5 +1,6 @@
 import * as usersService from './users.service.js';
 import User from '../users/users.model.js';
+import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; 
 
 // Get user details by ID
 export const getUserById = async (req, res) => {
@@ -75,7 +76,7 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// Soft delete a user
+// Soft delete a user (ensure that only admins can perform this action)
 export const deleteUser = async (req, res) => {
   const { id } = req.params;
 

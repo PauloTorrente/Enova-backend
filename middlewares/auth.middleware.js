@@ -11,7 +11,7 @@ export const authenticateUser = (req, res, next) => {
   try {
     // Verify the token and decode it
     const decoded = jwt.verify(token, process.env.JWT_SECRET); 
-    req.user = decoded.user; // Attach user info to request
+    req.user = decoded; // Attach user info to request
     next(); // Proceed to next middleware or route handler
   } catch (error) {
     return res.status(401).json({ message: 'Token is not valid' });
@@ -29,7 +29,7 @@ export const authenticateAdmin = (req, res, next) => {
   try {
     // Verify the token and decode it
     const decoded = jwt.verify(token, process.env.JWT_SECRET); 
-    req.user = decoded.user; // Attach user info to request
+    req.user = decoded; // Attach user info to request
 
     // Check if the user role is admin
     if (req.user.role !== 'Admin') {

@@ -7,6 +7,7 @@ import {
   deleteUser, 
   getWalletBalance 
 } from './users.controller.js';
+import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; 
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const router = express.Router();
 router.get('/', getAllUsers); 
 router.get('/:id', getUserById);
 router.patch('/:id', updateUser); 
-router.delete('/:id', deleteUser);
+router.delete('/:id', authenticateAdmin, deleteUser);  
 router.get('/confirm/:token', confirmUser);
 router.get('/:id/wallet', getWalletBalance); 
 
