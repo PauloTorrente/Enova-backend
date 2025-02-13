@@ -6,14 +6,14 @@ import * as surveysController from './surveys.controller.js';
 const router = express.Router();
 
 // Admin-only routes
-router.post('/surveys', authenticateAdmin, surveysController.createSurvey); // Create a survey (admin only)
-router.delete('/surveys/:id', authenticateAdmin, surveysController.deleteSurvey); // Delete a survey (admin only)
+router.post('/', authenticateAdmin, surveysController.createSurvey); // Create a survey (admin only)
+router.delete('/:id', authenticateAdmin, surveysController.deleteSurvey); // Delete a survey (admin only)
 
 // Public routes
-router.get('/surveys/:id', surveysController.getSurveyById); // Get survey by ID
-router.get('/surveys/active', surveysController.getActiveSurveys); // Get active surveys
+router.get('/:id', surveysController.getSurveyById); // Get survey by ID
+router.get('/active', surveysController.getActiveSurveys); // Get active surveys
 
 // Apply authentication middleware here, so only authenticated users can respond
-router.post('/surveys/:id/respond', authenticateUser, surveysController.respondToSurvey); // Respond to a survey (authentication required)
+router.post('/:id/respond', authenticateUser, surveysController.respondToSurvey); // Respond to a survey (authentication required)
 
 export default router;
