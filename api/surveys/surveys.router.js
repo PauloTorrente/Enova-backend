@@ -1,12 +1,13 @@
 import express from 'express';
 import { authenticateUser } from '../../middlewares/auth.middleware.js'; 
+import { authenticateAdmin } from '../../middlewares/auth.middleware.js';
 import * as surveysController from './surveys.controller.js';
 
 const router = express.Router();
 
 // Admin-only routes
-router.post('/surveys', surveysController.createSurvey); // Create a survey (admin only)
-router.delete('/surveys/:id', surveysController.deleteSurvey); // Delete a survey (admin only)
+router.post('/surveys', authenticateAdmin, surveysController.createSurvey); // Create a survey (admin only)
+router.delete('/surveys/:id', authenticateAdmin, surveysController.deleteSurvey); // Delete a survey (admin only)
 
 // Public routes
 router.get('/surveys/:id', surveysController.getSurveyById); // Get survey by ID
