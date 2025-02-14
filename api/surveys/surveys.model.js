@@ -31,7 +31,7 @@ const Survey = sequelize.define('Survey', {
   },
 }, {
   tableName: 'surveys', // Explicitly set table name
-  timestamps: true, // Enables createdAt and updatedAt timestamps
+  timestamps: false, // Disable automatic creation of createdAt and updatedAt columns
 });
 
 export default Survey;
