@@ -23,19 +23,11 @@ const Survey = sequelize.define('Survey', {
   expirationTime: {
     type: DataTypes.DATE,
     allowNull: false, // Expiration time is required
-    field: 'expirationTime', 
+    field: 'expirationTime', // Make sure to match the exact column name in the database
   },
   status: {
     type: DataTypes.ENUM('active', 'expired'), // Status can be 'active' or 'expired'
     defaultValue: 'active', // Default status is 'active'
-  },
-  createdBy: {
-    type: DataTypes.INTEGER,
-    allowNull: false, // Creator (admin user ID) is required
-    references: {
-      model: 'accounts_db', // Reference to the users table
-      key: 'id',
-    },
   },
 }, {
   tableName: 'surveys', // Explicitly set table name
