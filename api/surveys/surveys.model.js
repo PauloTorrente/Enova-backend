@@ -23,6 +23,7 @@ const Survey = sequelize.define('Survey', {
   expirationTime: {
     type: DataTypes.DATE,
     allowNull: false, // Expiration time is required
+    field: 'expirationTime', 
   },
   status: {
     type: DataTypes.ENUM('active', 'expired'), // Status can be 'active' or 'expired'
