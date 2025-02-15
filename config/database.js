@@ -6,9 +6,10 @@ import dotenv from 'dotenv'; // dotenv is used to load environment variables
 dotenv.config();
 
 // Create a Sequelize instance with the DATABASE_URL from the .env file
-// This connects to the PostgreSQL database
+// This connects to the PostgreSQL database and sets the timezone to America/Bogota
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres', // Specify PostgreSQL as the database dialect
+  timezone: 'America/Bogota', // Set timezone to Colombia (America/Bogota)
   logging: false, // Disable query logging (optional for cleaner logs)
   dialectOptions: {
     ssl: {
