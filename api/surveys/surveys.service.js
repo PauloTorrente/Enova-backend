@@ -1,13 +1,25 @@
 import Survey from './surveys.model.js';
+import Result from '../results/results.model.js';
 import { Op } from 'sequelize';
-import crypto from 'crypto'; // For generating unique tokens
+import crypto from 'crypto'; 
 
-// Function to save a new survey
+// Function to generate a unique token for a survey
+export const generateSurveyToken = () => {
+  // Generate 20 random bytes and convert to a hexadecimal string
+  return crypto.randomBytes(20).toString('hex');
+};
+
+// Function to create a new survey
 export const createSurvey = async (surveyData) => {
   try {
-    const survey = await Survey.create(surveyData); // Insert new survey into the database
+    // Generate a unique token and assign it to the accessToken field
+    surveyData.accessToken = generateSurveyToken();
+
+    // Create the survey in the database using the provided data (including the token)
+    const survey = await Survey.create(surveyData);
     return survey;
   } catch (error) {
+    // Throw an error if something goes wrong during survey creation
     throw new Error('Error creating survey: ' + error.message);
   }
 };
@@ -19,7 +31,7 @@ export const getActiveSurveys = async () => {
       where: {
         status: 'active',
         expirationTime: {
-          [Op.gt]: new Date(), // Only active surveys, where expiration time is in the future
+          [Op.gt]: new Date(),
         },
       },
     });
@@ -29,20 +41,20 @@ export const getActiveSurveys = async () => {
   }
 };
 
-// Function to check if a survey is expired and update its status
+// Function to check and update expired surveys' status
 export const checkSurveyExpiration = async () => {
   try {
     const surveys = await Survey.findAll({
       where: {
         expirationTime: {
-          [Op.lt]: new Date(), // Check if the expiration time is in the past
+          [Op.lt]: new Date(),
         },
         status: 'active',
       },
     });
 
     for (let survey of surveys) {
-      survey.status = 'expired'; // Mark expired surveys
+      survey.status = 'expired';
       await survey.save();
     }
   } catch (error) {
@@ -50,21 +62,21 @@ export const checkSurveyExpiration = async () => {
   }
 };
 
-// Function to generate a unique token for a survey (for access via Vercel or similar)
-export const generateSurveyToken = (surveyId) => {
-  return crypto.randomBytes(20).toString('hex'); // Generate random token
-};
-
-// Function to save user responses to the survey
-export const saveResponse = async (surveyId, response) => {
+// Function to save the user's response to a survey
+export const saveResponse = async (surveyId, userId, response) => {
   try {
-    // Assuming there is a Result model for saving responses
     const survey = await Survey.findByPk(surveyId);
     if (!survey) {
       throw new Error('Survey not found');
     }
-    // Save the response (details of the response saving can vary)
-    const result = await survey.createResult({ ...response });
+
+    // Create a result entry linking the user and the survey
+    const result = await Result.create({
+      surveyId,
+      userId,
+      response,
+    });
+
     return result;
   } catch (error) {
     throw new Error('Error saving response: ' + error.message);
@@ -78,7 +90,7 @@ export const deleteSurvey = async (surveyId) => {
     if (!survey) {
       throw new Error('Survey not found');
     }
-    await survey.destroy(); // Delete the survey
+    await survey.destroy();
   } catch (error) {
     throw new Error('Error deleting survey: ' + error.message);
   }
@@ -94,3 +106,5 @@ const surveysService = {
 };
 
 export default surveysService;
+
+//this one

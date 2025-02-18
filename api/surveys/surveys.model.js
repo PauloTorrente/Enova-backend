@@ -29,9 +29,16 @@ const Survey = sequelize.define('Survey', {
     type: DataTypes.ENUM('active', 'expired'), // Status can be 'active' or 'expired'
     defaultValue: 'active', // Default status is 'active'
   },
+  accessToken: {
+    type: DataTypes.STRING,
+    allowNull: false, // Token is required for survey access
+    unique: true, // Ensure each survey has a unique token
+  },
 }, {
   tableName: 'surveys', // Explicitly set table name
   timestamps: false, // Disable automatic creation of createdAt and updatedAt columns
 });
 
 export default Survey;
+
+//this one

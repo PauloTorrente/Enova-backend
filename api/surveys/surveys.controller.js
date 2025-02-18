@@ -1,14 +1,15 @@
-import * as surveysService from './surveys.service.js'; // Importing all functions from the service module
+import * as surveysService from './surveys.service.js'; // Import all functions from the service module
 
 // Controller to create a new survey (admin only)
 export const createSurvey = async (req, res) => {
   try {
-    console.log('Receiving request to create survey:', req.body);
+    console.log('Received request to create survey:', req.body);
 
     const surveyData = req.body; // Survey data sent from the client
     const survey = await surveysService.createSurvey(surveyData);
 
     console.log('Survey successfully created:', survey);
+    // The response includes the created survey with the access token
     res.status(201).json(survey);
   } catch (error) {
     console.error('Error creating survey:', error);
@@ -54,13 +55,16 @@ export const getActiveSurveys = async (req, res) => {
 // Controller to respond to a survey
 export const respondToSurvey = async (req, res) => {
   try {
-    console.log('Receiving response for survey:', req.params.id, req.body);
+    console.log('Received response for survey:', req.params.id, req.body);
 
-    // Logic to save responses (not implemented here)
+    const surveyId = req.params.id;
+    const userId = req.user.id; // Extract user ID from authenticated request
     const response = req.body;
 
-    console.log('Response successfully recorded:', response);
-    res.status(200).json({ message: 'Response recorded' });
+    const savedResponse = await surveysService.saveResponse(surveyId, userId, response);
+
+    console.log('Response successfully recorded:', savedResponse);
+    res.status(200).json({ message: 'Response recorded successfully' });
   } catch (error) {
     console.error('Error recording response:', error);
     res.status(500).json({ message: 'Internal error while recording response' });
@@ -70,7 +74,7 @@ export const respondToSurvey = async (req, res) => {
 // Controller to delete a survey (admin only)
 export const deleteSurvey = async (req, res) => {
   try {
-    console.log(`Receiving request to delete survey with ID: ${req.params.id}`);
+    console.log(`Received request to delete survey with ID: ${req.params.id}`);
 
     const surveyId = req.params.id;
     await surveysService.deleteSurvey(surveyId);
@@ -82,3 +86,5 @@ export const deleteSurvey = async (req, res) => {
     res.status(500).json({ message: 'Internal error while deleting survey' });
   }
 };
+
+//this one
