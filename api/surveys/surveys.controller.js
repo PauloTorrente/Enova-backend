@@ -58,9 +58,15 @@ export const respondToSurvey = async (req, res) => {
     console.log('Received response for survey:', req.params.id, req.body);
 
     const surveyId = req.params.id;
-    const userId = req.user.id; // Extract user ID from authenticated request
+    const userId = req.user?.id; // Ensure user is authenticated
+    if (!userId) {
+      console.error('User not authenticated or userId missing');
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const response = req.body;
 
+    console.log(`User ID: ${userId}`); // Log user ID for debugging
     const savedResponse = await surveysService.saveResponse(surveyId, userId, response);
 
     console.log('Response successfully recorded:', savedResponse);
@@ -86,5 +92,3 @@ export const deleteSurvey = async (req, res) => {
     res.status(500).json({ message: 'Internal error while deleting survey' });
   }
 };
-
-//this one
