@@ -1,45 +1,43 @@
 import { DataTypes } from 'sequelize';
-import { sequelize } from '../../config/database.js'; // Import Sequelize instance
+import { sequelize } from '../../config/database.js';
 
-// Define the Results model using Sequelize ORM
+// Defining the Result model using Sequelize ORM
 const Result = sequelize.define('Result', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true, // Auto-incrementing ID for each response
   },
-  // The user who answered the survey
-  userId: {
-    type: DataTypes.INTEGER,
-    allowNull: false, // User ID is required
-    references: {
-      model: 'users', // Assuming 'users' table exists in your database (accounts_db)
-      key: 'id',
-    },
-  },
-  // The survey that was answered
   surveyId: {
     type: DataTypes.INTEGER,
-    allowNull: false, // Survey ID is required
+    allowNull: false, // Cannot be null, each response must be linked to a survey
     references: {
-      model: 'surveys', // Assuming 'surveys' table exists
+      model: 'surveys', // The reference is to the Survey model
       key: 'id',
     },
+    onDelete: 'CASCADE', // If the survey is deleted, the associated responses will also be deleted
   },
-  // Store the user's answers as a JSON object (can be an array of answers or key-value pairs)
-  answers: {
-    type: DataTypes.JSON, // Store responses as JSON (can include multiple answers)
-    allowNull: false, // Answers are required
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false, // Cannot be null, each response must be linked to a user
+    references: {
+      model: 'users', // The reference is to the User model
+      key: 'id',
+    },
+    onDelete: 'CASCADE', // If the user is deleted, their responses will also be deleted
   },
-  // Store the date/time when the response was submitted
-  submittedAt: {
-    type: DataTypes.DATE,
-    allowNull: false, // Required for tracking submission time
-    defaultValue: DataTypes.NOW, // Set default to the current time
+  question: {
+    type: DataTypes.STRING, // The question from the survey that was answered
+    allowNull: false, // Cannot be null, we need the question to store the response
+  },
+  answer: {
+    type: DataTypes.JSON, // The answer can be a simple value or an object (for multiple choice questions, for example)
+    allowNull: false, // Cannot be null, the response must be provided
   },
 }, {
-  tableName: 'results', // Explicitly set table name for the results
-  timestamps: true, // Enables createdAt and updatedAt timestamps automatically
+  tableName: 'results', // Defining the table name in the database
+  timestamps: false, // Disabling automatic creation of createdAt and updatedAt columns
 });
 
+// Exporting the Result model for use in other files
 export default Result;
