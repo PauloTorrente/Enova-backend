@@ -16,6 +16,7 @@ const Result = sequelize.define('Result', {
       key: 'id',
     },
     onDelete: 'CASCADE', // If the survey is deleted, the associated responses will also be deleted
+    field: 'survey_id', // Ensuring the correct column name in the database (snake_case)
   },
   userId: {
     type: DataTypes.INTEGER,
@@ -25,6 +26,7 @@ const Result = sequelize.define('Result', {
       key: 'id',
     },
     onDelete: 'CASCADE', // If the user is deleted, their responses will also be deleted
+    field: 'user_id', // Ensuring the correct column name in the database (snake_case)
   },
   question: {
     type: DataTypes.STRING, // The question from the survey that was answered
