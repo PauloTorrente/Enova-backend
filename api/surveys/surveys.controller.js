@@ -58,13 +58,19 @@ export const respondToSurvey = async (req, res) => {
     console.log('Received response for survey:', req.params.id, req.body);
 
     const surveyId = req.params.id;
-    const userId = req.user?.userId; // Ensure user is authenticated (use userId from JWT), This is the change
+    const userId = req.user?.userId; // Ensure user is authenticated (use userId from JWT)
     if (!userId) {
       console.error('User not authenticated or userId missing');
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const response = req.body;
+
+    // Ensure the response contains valid data
+    const validResponse = response.every(item => item.questionId && item.answer);
+    if (!validResponse) {
+      return res.status(400).json({ message: 'Response is missing questionId or answer' });
+    }
 
     console.log(`User ID: ${userId}`); // Log user ID for debugging
     const savedResponse = await surveysService.saveResponse(surveyId, userId, response);

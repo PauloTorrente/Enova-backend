@@ -70,6 +70,12 @@ export const saveResponse = async (surveyId, userId, response) => {
       throw new Error('Survey not found');
     }
 
+    // Check that response contains valid question-answer pairs
+    const validResponse = response.every(item => item.questionId && item.answer);
+    if (!validResponse) {
+      throw new Error('Response contains invalid data (questionId or answer missing)');
+    }
+
     // Create a result entry linking the user and the survey
     const result = await Result.create({
       surveyId,
