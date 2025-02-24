@@ -67,8 +67,7 @@ export const respondToSurvey = async (req, res) => {
     const response = req.body;
 
     // Ensure the response contains valid data
-    const validResponse = response.every(item => item.questionId && item.answer);
-    if (!validResponse) {
+    if (!Array.isArray(response) || response.some(item => !item.questionId || !item.answer)) {
       return res.status(400).json({ message: 'Response is missing questionId or answer' });
     }
 
