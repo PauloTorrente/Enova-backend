@@ -58,7 +58,7 @@ export const respondToSurvey = async (req, res) => {
     console.log('Received response for survey:', req.params.id, req.body);
 
     const surveyId = req.params.id;
-    const userId = req.user?.id; // Ensure user is authenticated
+    const userId = req.user?.userId; // Ensure user is authenticated (use userId from JWT), This is the change
     if (!userId) {
       console.error('User not authenticated or userId missing');
       return res.status(401).json({ message: 'User not authenticated' });

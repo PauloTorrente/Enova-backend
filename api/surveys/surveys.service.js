@@ -1,7 +1,7 @@
 import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 import { Op } from 'sequelize';
-import crypto from 'crypto'; 
+import crypto from 'crypto';
 
 // Function to generate a unique token for a survey
 export const generateSurveyToken = () => {
@@ -106,5 +106,3 @@ const surveysService = {
 };
 
 export default surveysService;
-
-//this one

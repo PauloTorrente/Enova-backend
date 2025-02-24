@@ -10,7 +10,7 @@ export const authenticateUser = (req, res, next) => {
 
   try {
     // Verify the token and decode it
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // Attach user info to request
     next(); // Proceed to next middleware or route handler
   } catch (error) {
