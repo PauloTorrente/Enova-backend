@@ -75,14 +75,20 @@ export const saveResponse = async (surveyId, userId, response) => {
       throw new Error('Response contains invalid data (questionId or answer missing)');
     }
 
-    // Create a result entry linking the user and the survey
-    const result = await Result.create({
-      surveyId,
-      userId,
-      response,
+    // Iterate over the response and save each question-answer pair separately
+    const resultEntries = response.map(item => {
+      return {
+        surveyId,
+        userId,
+        question: item.question,  // Add the question text here
+        answer: item.answer,      // Store the answer (could be an object for multiple choice)
+      };
     });
 
-    return result;
+    // Save all the results
+    const results = await Result.bulkCreate(resultEntries);
+
+    return results;
   } catch (error) {
     throw new Error('Error saving response: ' + error.message);
   }
