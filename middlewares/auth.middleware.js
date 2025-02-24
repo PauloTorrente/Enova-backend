@@ -35,7 +35,7 @@ export const authenticateAdmin = (req, res, next) => {
     if (req.user.role !== 'Admin') {
       return res.status(403).json({ message: 'Access denied. Only admins can create surveys.' });
     }
-    
+
     next(); // If the user is an admin, proceed to the next middleware or route handler
   } catch (error) {
     return res.status(401).json({ message: 'Token is not valid' });

@@ -71,8 +71,7 @@ export const saveResponse = async (surveyId, userId, response) => {
     }
 
     // Check that response contains valid question-answer pairs
-    const validResponse = response.every(item => item.questionId && item.answer);
-    if (!validResponse) {
+    if (!Array.isArray(response) || response.some(item => !item.questionId || !item.answer)) {
       throw new Error('Response contains invalid data (questionId or answer missing)');
     }
 
