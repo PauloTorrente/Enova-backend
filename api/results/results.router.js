@@ -1,12 +1,13 @@
 import express from 'express'; // Importing express to define the routes
 import * as resultsController from './results.controller.js'; // Importing controller functions
+import { authenticateUser } from '../../middlewares/auth.middleware.js'; // Importing authentication middleware
 
 const router = express.Router(); // Initializing the router to define our API routes
 
 // Route to save a response for a survey
 // POST /results/submit
 // This route is used when a user submits a response to a survey question
-router.post('/submit', async (req, res) => {
+router.post('/submit', authenticateUser, async (req, res) => {
   try {
     const { surveyId, userId, question, answer } = req.body; // Destructuring the data from the request body
     console.log('POST /results/submit called');
@@ -31,11 +32,12 @@ router.post('/submit', async (req, res) => {
 // Route to get all responses for a specific survey
 // GET /results/survey/:surveyId
 // This route is used to fetch all responses for a specific survey
-router.get('/survey/:surveyId', async (req, res) => {
+router.get('/survey/:surveyId', authenticateUser, async (req, res) => {
   try {
     const { surveyId } = req.params; // Extracting the surveyId from the URL parameters
     console.log('GET /results/survey/:surveyId called');
     console.log('surveyId:', surveyId);
+    console.log('Request User:', req.user); // Debug log
 
     if (!surveyId) {
       console.log('Validation failed: Missing surveyId');
@@ -55,7 +57,7 @@ router.get('/survey/:surveyId', async (req, res) => {
 // Route to get all responses for a specific user
 // GET /results/user/:userId
 // This route is used to fetch all responses for a specific user
-router.get('/user/:userId', async (req, res) => {
+router.get('/user/:userId', authenticateUser, async (req, res) => {
   try {
     const { userId } = req.params; // Extracting the userId from the URL parameters
     console.log('GET /results/user/:userId called');
@@ -79,7 +81,7 @@ router.get('/user/:userId', async (req, res) => {
 // Route to get all responses for a specific question in a survey
 // GET /results/survey/:surveyId/question/:question
 // This route is used to fetch all responses for a specific question in a survey
-router.get('/survey/:surveyId/question/:question', async (req, res) => {
+router.get('/survey/:surveyId/question/:question', authenticateUser, async (req, res) => {
   try {
     const { surveyId, question } = req.params; // Extracting surveyId and question from the URL parameters
     console.log('GET /results/survey/:surveyId/question/:question called');
