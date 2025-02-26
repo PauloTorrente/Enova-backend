@@ -12,7 +12,13 @@ export const authenticateUser = (req, res, next) => {
     // Verify the token and decode it
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // Attach user info to request
-    next(); // Proceed to next middleware or route handler
+
+    // Check if the token contains a surveyId
+    if (!req.user.surveyId) {
+      return res.status(400).json({ message: 'Survey ID missing in token' });
+    }
+    
+    next(); // Proceed to the next middleware or route handler
   } catch (error) {
     return res.status(401).json({ message: 'Token is not valid' });
   }

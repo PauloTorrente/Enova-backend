@@ -35,12 +35,11 @@ export const saveResponse = async (req, res) => {
 // Controller function to get all responses for a specific survey (Admin only)
 export const getResponsesBySurvey = async (req, res) => {
   try {
-    // Check if 'surveyId' exists in the request parameters
-    const { surveyId } = req.params;
+    // The surveyId is now available in req.user, which comes from the JWT token
+    const { surveyId } = req.user; // The surveyId is now extracted from the JWT token
 
-    // Ensure that 'surveyId' is provided
     if (!surveyId) {
-      return res.status(400).json({ message: 'surveyId parameter is missing' });
+      return res.status(400).json({ message: 'Survey ID is missing in the token' });
     }
 
     // Call the resultsService to get responses for the survey
