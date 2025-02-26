@@ -25,7 +25,7 @@ router.post('/submit', async (req, res) => {
 // Route to get all responses for a specific survey
 // GET /results/survey/:surveyId
 // This route is used to fetch all responses for a specific survey
-router.get('/survey/:surveyId', async (req, res) => {
+router.get('/surveys/:surveyId', async (req, res) => {
   try {
     const { surveyId } = req.params; // Extracting the surveyId from the URL parameters
 
