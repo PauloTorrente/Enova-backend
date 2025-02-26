@@ -16,17 +16,7 @@ router.post('/submit', async (req, res) => {
     }
 
     const result = await resultsController.saveResponse(surveyId, userId, question, answer); // Call the controller function to save the response
-    res.status(201).json(result); // Respond with a success messaimport express from 'express';
-    import { authenticateUser } from '../../middlewares/auth.middleware.js';
-    import * as resultsController from './results.controller.js';
-    
-    const router = express.Router();
-    
-    // Route for saving results of a survey (authentication required)
-    router.post('/:id/results', authenticateUser, resultsController.saveSurveyResults); // Save survey results
-    
-    export default router;
-    ge and the saved result
+    res.status(201).json(result); // Respond with a success message and the saved result
   } catch (error) {
     res.status(400).json({ message: error.message }); // Respond with an error message if something goes wrong
   }
@@ -35,7 +25,7 @@ router.post('/submit', async (req, res) => {
 // Route to get all responses for a specific survey
 // GET /results/survey/:surveyId
 // This route is used to fetch all responses for a specific survey
-router.get('/surveys/:surveyId', async (req, res) => {
+router.get('/survey/:surveyId', async (req, res) => {
   try {
     const { surveyId } = req.params; // Extracting the surveyId from the URL parameters
 
