@@ -2,14 +2,17 @@ import Result from './results.model.js'; // Importing the Result model
 import Survey from '../surveys/surveys.model.js'; // Importing the Survey model to check the survey details
 import { Op } from 'sequelize'; // Importing Sequelize operators to perform various query conditions
 
+// Function to check if the survey exists
+const checkSurveyExistence = async (surveyId) => {
+  const survey = await Survey.findByPk(surveyId);
+  if (!survey) throw new Error('Survey not found');
+  return survey;
+};
+
 // Function to save a response for a user
 export const saveResponse = async (surveyId, userId, question, answer) => {
   try {
-    // Check if the survey exists
-    const survey = await Survey.findByPk(surveyId);
-    if (!survey) {
-      throw new Error('Survey not found'); // If the survey doesn't exist, throw an error
-    }
+    await checkSurveyExistence(surveyId); // Check if the survey exists before saving the response
 
     // Save the user's answer in the 'results' table
     const result = await Result.create({
@@ -35,6 +38,10 @@ export const getResponsesBySurvey = async (surveyId) => {
       },
     });
 
+    if (!responses.length) {
+      throw new Error('No responses found for this survey'); // If no responses found, throw an error
+    }
+
     return responses; // Return the list of responses
   } catch (error) {
     throw new Error('Error fetching survey responses: ' + error.message); // If any error occurs, throw an error
@@ -50,6 +57,10 @@ export const getUserResponses = async (userId) => {
         userId: userId, // Filter by user ID
       },
     });
+
+    if (!userResponses.length) {
+      throw new Error('No responses found for this user'); // If no responses found, throw an error
+    }
 
     return userResponses; // Return the list of responses from the user
   } catch (error) {
@@ -67,6 +78,10 @@ export const getResponsesByQuestion = async (surveyId, question) => {
         question: question,  // Filter by the question
       },
     });
+
+    if (!responses.length) {
+      throw new Error('No responses found for this question'); // If no responses found, throw an error
+    }
 
     return responses; // Return the responses for the specific question
   } catch (error) {

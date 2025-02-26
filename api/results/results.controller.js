@@ -1,5 +1,6 @@
-import resultsService from './results.service.js'; // Importing the results service to interact with the results data
+import * as resultsService from './results.service.js'; // Importing the results service to interact with the results data
 import { validationResult } from 'express-validator'; // Importing express-validator to validate incoming requests
+import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; // Importing the authentication middleware for admins
 
 // Controller function to save a response for a survey
 export const saveResponse = async (req, res) => {
@@ -31,7 +32,7 @@ export const saveResponse = async (req, res) => {
   }
 };
 
-// Controller function to get all responses for a specific survey
+// Controller function to get all responses for a specific survey (Admin only)
 export const getResponsesBySurvey = async (req, res) => {
   try {
     const { surveyId } = req.params; // Extract surveyId from request parameters
@@ -58,7 +59,7 @@ export const getResponsesBySurvey = async (req, res) => {
   }
 };
 
-// Controller function to get all responses for a specific user
+// Controller function to get all responses for a specific user (Admin only)
 export const getUserResponses = async (req, res) => {
   try {
     const { userId } = req.params; // Extract userId from request parameters
@@ -85,7 +86,7 @@ export const getUserResponses = async (req, res) => {
   }
 };
 
-// Controller function to get responses for a specific question in a survey
+// Controller function to get responses for a specific question in a survey (Admin only)
 export const getResponsesByQuestion = async (req, res) => {
   try {
     const { surveyId, question } = req.params; // Extract surveyId and question from request parameters
@@ -112,12 +113,12 @@ export const getResponsesByQuestion = async (req, res) => {
   }
 };
 
-// Exporting all controller functions for use in routes
+// Exporting all controller functions for use in routes, with admin authentication where necessary
 const resultsController = {
   saveResponse,
-  getResponsesBySurvey,
-  getUserResponses,
-  getResponsesByQuestion,
+  getResponsesBySurvey: authenticateAdmin, // Only admins can access this route
+  getUserResponses: authenticateAdmin, // Only admins can access this route
+  getResponsesByQuestion: authenticateAdmin, // Only admins can access this route
 };
 
 export default resultsController;

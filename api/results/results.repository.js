@@ -4,6 +4,11 @@ import Result from './results.model.js'; // Importing the Result model to intera
 // Function to save a response to the database
 export const saveResponse = async (surveyId, userId, question, answer) => {
   try {
+    // Check if the surveyId and userId are valid (optional, could be done in the service layer too)
+    if (!surveyId || !userId || !question || !answer) {
+      throw new Error('All fields (surveyId, userId, question, and answer) are required');
+    }
+
     // Creating a new response entry in the Result model
     const newResult = await Result.create({
       surveyId,     // Survey ID that the response belongs to
@@ -22,6 +27,11 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
 // Function to get all responses for a specific survey
 export const getResponsesBySurvey = async (surveyId) => {
   try {
+    // Ensure surveyId is provided
+    if (!surveyId) {
+      throw new Error('surveyId is required');
+    }
+
     // Fetching all responses for the specific survey from the Result model
     const responses = await Result.findAll({
       where: {
@@ -38,6 +48,11 @@ export const getResponsesBySurvey = async (surveyId) => {
 // Function to get all responses for a specific user
 export const getUserResponses = async (userId) => {
   try {
+    // Ensure userId is provided
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+
     // Fetching all responses for the specific user from the Result model
     const responses = await Result.findAll({
       where: {
@@ -54,6 +69,11 @@ export const getUserResponses = async (userId) => {
 // Function to get all responses for a specific question in a survey
 export const getResponsesByQuestion = async (surveyId, question) => {
   try {
+    // Ensure surveyId and question are provided
+    if (!surveyId || !question) {
+      throw new Error('surveyId and question are required');
+    }
+
     // Fetching all responses for a specific question in a survey
     const responses = await Result.findAll({
       where: {
