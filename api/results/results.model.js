@@ -1,5 +1,5 @@
-import { DataTypes } from 'sequelize';
-import { sequelize } from '../../config/database.js';
+import { DataTypes } from 'sequelize'; // Importing DataTypes from Sequelize
+import { sequelize } from '../../config/database.js'; // Importing the Sequelize instance
 
 // Defining the Result model using Sequelize ORM
 const Result = sequelize.define('Result', {

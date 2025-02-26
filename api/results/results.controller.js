@@ -38,14 +38,11 @@ export const saveResponse = async (req, res) => {
 // Controller function to get all responses for a specific survey (Admin only)
 export const getResponsesBySurvey = async (req, res) => {
   try {
-    console.log('Request User:', req.user); // Debugging the user object coming from JWT
-
-    // The surveyId is now available in req.user, which comes from the JWT token
-    const { surveyId } = req.user; // The surveyId is now extracted from the JWT token
+    const { surveyId } = req.params; // Extract surveyId from URL parameters
     console.log('Extracted Survey ID:', surveyId); // Debugging the extracted surveyId
 
     if (!surveyId) {
-      return res.status(400).json({ message: 'Survey ID is missing in the token' });
+      return res.status(400).json({ message: 'Survey ID is required' });
     }
 
     // Call the resultsService to get responses for the survey
@@ -132,12 +129,12 @@ export const getResponsesByQuestion = async (req, res) => {
   }
 };
 
-// Exporting all controller functions for use in routes, with admin authentication where necessary
+// Exporting all controller functions for use in routes
 const resultsController = {
   saveResponse,
-  getResponsesBySurvey: authenticateAdmin, // Only admins can access this route
-  getUserResponses: authenticateAdmin, // Only admins can access this route
-  getResponsesByQuestion: authenticateAdmin, // Only admins can access this route
+  getResponsesBySurvey,
+  getUserResponses,
+  getResponsesByQuestion,
 };
 
 export default resultsController;
