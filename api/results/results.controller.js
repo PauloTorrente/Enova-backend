@@ -35,7 +35,13 @@ export const saveResponse = async (req, res) => {
 // Controller function to get all responses for a specific survey (Admin only)
 export const getResponsesBySurvey = async (req, res) => {
   try {
-    const { surveyId } = req.params; // Extract surveyId from request parameters
+    // Check if 'surveyId' exists in the request parameters
+    const { surveyId } = req.params;
+
+    // Ensure that 'surveyId' is provided
+    if (!surveyId) {
+      return res.status(400).json({ message: 'surveyId parameter is missing' });
+    }
 
     // Call the resultsService to get responses for the survey
     const responses = await resultsService.getResponsesBySurvey(surveyId);
@@ -51,7 +57,10 @@ export const getResponsesBySurvey = async (req, res) => {
       responses: responses,
     });
   } catch (error) {
-    console.error(error);
+    // Log the error for debugging purposes
+    console.error('Error in getResponsesBySurvey:', error);
+
+    // Return an error message if something goes wrong
     return res.status(500).json({
       message: 'Error fetching responses for the survey',
       error: error.message,
