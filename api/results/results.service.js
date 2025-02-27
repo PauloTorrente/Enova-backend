@@ -12,8 +12,6 @@ const checkSurveyExistence = async (surveyId) => {
 // Function to save a response for a user
 export const saveResponse = async (surveyId, userId, question, answer) => {
   try {
-    await checkSurveyExistence(surveyId); // Check if the survey exists before saving the response
-
     // Save the user's answer in the 'results' table
     const result = await Result.create({
       surveyId, // Linking the response to the survey
@@ -24,7 +22,7 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
 
     return result; // Return the saved response
   } catch (error) {
-    throw new Error('Error saving response: ' + error.message); // If any error occurs, throw an error with the message
+    throw new Error('Error saving response: ' + error.message);
   }
 };
 

@@ -1,4 +1,5 @@
 import * as surveysService from './surveys.service.js'; // Import all functions from the service module
+import Survey from './surveys.model.js';
 
 // Controller to create a new survey (admin only)
 export const createSurvey = async (req, res) => {
@@ -71,8 +72,25 @@ export const respondToSurvey = async (req, res) => {
       return res.status(400).json({ message: 'Response is missing questionId or answer' });
     }
 
-    console.log(`User ID: ${userId}`); // Log user ID for debugging
-    const savedResponse = await surveysService.saveResponse(surveyId, userId, response);
+    // Fetch the survey to get the questions
+    const survey = await Survey.findByPk(surveyId);
+    if (!survey) {
+      return res.status(404).json({ message: 'Survey not found' });
+    }
+
+    // Map the response to include the question text
+    const resultEntries = response.map(item => {
+      const questionObj = survey.questions.find(q => q.questionId === item.questionId);
+      return {
+        surveyId,
+        userId,
+        question: questionObj.question, // Add the question text here
+        answer: item.answer,            // Store the answer
+      };
+    });
+
+    // Save all the results
+    const savedResponse = await Result.bulkCreate(resultEntries);
 
     console.log('Response successfully recorded:', savedResponse);
     res.status(200).json({ message: 'Response recorded successfully' });

@@ -1,6 +1,7 @@
 import * as resultsService from './results.service.js'; // Importing the results service to interact with the results data
 import { validationResult } from 'express-validator'; // Importing express-validator to validate incoming requests
 import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; // Importing the authentication middleware for admins
+import Survey from '../surveys/surveys.model.js';
 
 // Controller function to save a response for a survey
 export const saveResponse = async (req, res) => {
@@ -8,22 +9,37 @@ export const saveResponse = async (req, res) => {
     // Validate any request errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation failed', errors.array()); // Debugging validation errors
-      return res.status(400).json({ errors: errors.array() }); // If validation fails, return a 400 error with the error details
+      console.log('Validation failed', errors.array());
+      return res.status(400).json({ errors: errors.array() });
     }
 
     // Extracting data from the request body
-    const { surveyId, userId, question, answer } = req.body;
-    console.log('Request Body:', { surveyId, userId, question, answer }); // Debugging request body
+    const { surveyId, userId, questionId, answer } = req.body;
+    console.log('Request Body:', { surveyId, userId, questionId, answer });
+
+    // Fetch the survey to get the question text
+    const survey = await Survey.findByPk(surveyId);
+    if (!survey) {
+      return res.status(404).json({ message: 'Survey not found' });
+    }
+
+    // Find the specific question in the survey
+    const questionObj = survey.questions.find(q => q.questionId === questionId);
+    if (!questionObj) {
+      return res.status(404).json({ message: 'Question not found in the survey' });
+    }
+
+    // Extract the question text
+    const questionText = questionObj.question;
 
     // Call the resultsService to save the response
-    const result = await resultsService.saveResponse(surveyId, userId, question, answer);
-    console.log('Saved Response:', result); // Debugging the result from the service
+    const result = await resultsService.saveResponse(surveyId, userId, questionText, answer);
+    console.log('Saved Response:', result);
 
     // Return a success response with the saved result
     return res.status(201).json({
       message: 'Response saved successfully!',
-      result: result, // Return the saved response details
+      result: result,
     });
   } catch (error) {
     // If there's an error, catch it and return a 500 error with the error message
