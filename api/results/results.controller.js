@@ -29,22 +29,42 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
 };
 
 // Function to get all responses for a particular survey
-export const getResponsesBySurvey = async (surveyId) => {
+export const getResponsesBySurvey = async (req, res) => {
   try {
-    // Find all responses linked to a specific survey
-    const responses = await Result.findAll({
-      where: {
-        surveyId: surveyId, // Filter by survey ID
-      },
-    });
+    const { surveyId } = req.params; // Extract surveyId from URL parameters
+    console.log('Extracted Survey ID:', surveyId); // Debugging the extracted surveyId
 
-    if (!responses.length) {
-      throw new Error('No responses found for this survey'); // If no responses found, throw an error
+    // Ensure surveyId is provided and is a valid number
+    if (!surveyId || isNaN(surveyId)) {
+      return res.status(400).json({ message: 'Survey ID is required and must be a valid number' });
     }
 
-    return responses; // Return the list of responses
+    // Convert surveyId to a number (if it's a string)
+    const parsedSurveyId = parseInt(surveyId, 10);
+
+    // Call the resultsService to get responses for the survey
+    const responses = await resultsService.getResponsesBySurvey(parsedSurveyId);
+    console.log('Fetched Responses:', responses); // Debugging the responses fetched from the service
+
+    // If no responses are found, return a 404 error
+    if (responses.length === 0) {
+      return res.status(404).json({ message: 'No responses found for this survey.' });
+    }
+
+    // Return the responses in the response body
+    return res.status(200).json({
+      message: 'Responses fetched successfully!',
+      responses: responses,
+    });
   } catch (error) {
-    throw new Error('Error fetching survey responses: ' + error.message); // If any error occurs, throw an error
+    // Log the error for debugging purposes
+    console.error('Error in getResponsesBySurvey:', error);
+
+    // Return an error message if something goes wrong
+    return res.status(500).json({
+      message: 'Error fetching responses for the survey',
+      error: error.message,
+    });
   }
 };
 
