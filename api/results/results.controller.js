@@ -16,6 +16,11 @@ export const saveResponse = async (req, res) => {
     const { surveyId, userId, question, answer } = req.body;
     console.log('Request Body:', { surveyId, userId, question, answer }); // Debugging request body
 
+    // Ensure all required fields are present
+    if (!surveyId || !userId || !question || !answer) {
+      return res.status(400).json({ message: 'All fields (surveyId, userId, question, and answer) are required' });
+    }
+
     // Call the resultsService to save the response
     const result = await resultsService.saveResponse(surveyId, userId, question, answer);
     console.log('Saved Response:', result); // Debugging the result from the service

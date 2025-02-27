@@ -7,7 +7,7 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
     console.log('Starting saveResponse...');
     console.log(`surveyId: ${surveyId}, userId: ${userId}, question: ${question}, answer: ${answer}`);
 
-    // Check if the surveyId and userId are valid (optional, could be done in the service layer too)
+    // Check if the surveyId, userId, question, and answer are valid
     if (!surveyId || !userId || !question || !answer) {
       throw new Error('All fields (surveyId, userId, question, and answer) are required');
     }
