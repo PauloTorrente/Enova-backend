@@ -1,6 +1,6 @@
-import Result from './results.model.js'; // Importing the Result model
-import Survey from '../surveys/surveys.model.js'; // Importing the Survey model to check the survey details
-import { Op } from 'sequelize'; // Importing Sequelize operators to perform various query conditions
+import Result from './results.model.js';
+import Survey from '../surveys/surveys.model.js';
+import { Op } from 'sequelize';
 
 // Function to check if the survey exists
 const checkSurveyExistence = async (surveyId) => {
@@ -24,7 +24,7 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
 
     return result; // Return the saved response
   } catch (error) {
-    throw new Error('Error saving response: ' + error.message); // If any error occurs, throw an error with the message
+    throw new Error('Error saving response: ' + error.message);
   }
 };
 
@@ -39,12 +39,12 @@ export const getResponsesBySurvey = async (surveyId) => {
     });
 
     if (!responses.length) {
-      throw new Error('No responses found for this survey'); // If no responses found, throw an error
+      throw new Error('No responses found for this survey');
     }
 
     return responses; // Return the list of responses
   } catch (error) {
-    throw new Error('Error fetching survey responses: ' + error.message); // If any error occurs, throw an error
+    throw new Error('Error fetching survey responses: ' + error.message);
   }
 };
 
@@ -59,12 +59,12 @@ export const getUserResponses = async (userId) => {
     });
 
     if (!userResponses.length) {
-      throw new Error('No responses found for this user'); // If no responses found, throw an error
+      throw new Error('No responses found for this user');
     }
 
     return userResponses; // Return the list of responses from the user
   } catch (error) {
-    throw new Error('Error fetching user responses: ' + error.message); // If any error occurs, throw an error
+    throw new Error('Error fetching user responses: ' + error.message);
   }
 };
 
@@ -80,12 +80,12 @@ export const getResponsesByQuestion = async (surveyId, question) => {
     });
 
     if (!responses.length) {
-      throw new Error('No responses found for this question'); // If no responses found, throw an error
+      throw new Error('No responses found for this question');
     }
 
     return responses; // Return the responses for the specific question
   } catch (error) {
-    throw new Error('Error fetching responses for the question: ' + error.message); // If any error occurs, throw an error
+    throw new Error('Error fetching responses for the question: ' + error.message);
   }
 };
 
