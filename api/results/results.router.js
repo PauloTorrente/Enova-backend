@@ -1,8 +1,8 @@
-import express from 'express';
-import * as resultsController from './results.controller.js';
-import { authenticateAdmin } from '../../middlewares/auth.middleware.js';
+import express from 'express'; // Importing express to define the routes
+import * as resultsController from './results.controller.js'; // Importing controller functions
+import { authenticateAdmin, authenticateUser } from '../../middlewares/auth.middleware.js'; // Importing authentication middlewares
 
-const router = express.Router();
+const router = express.Router(); // Initializing the router to define our API routes
 
 // Route to save a response for a survey (authenticated users only)
 router.post('/submit', authenticateUser, resultsController.saveResponse);
