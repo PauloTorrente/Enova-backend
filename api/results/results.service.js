@@ -4,14 +4,22 @@ import { Op } from 'sequelize'; // Importing Sequelize operators to perform vari
 
 // Function to check if the survey exists
 const checkSurveyExistence = async (surveyId) => {
+  console.log('Checking survey existence...'); // Debugging log
   const survey = await Survey.findByPk(surveyId);
-  if (!survey) throw new Error('Survey not found');
+  if (!survey) {
+    console.log('Survey not found'); // Debugging log
+    throw new Error('Survey not found');
+  }
+  console.log('Survey found:', survey); // Debugging log
   return survey;
 };
 
 // Function to save a response for a user
 export const saveResponse = async (surveyId, userId, question, answer) => {
   try {
+    console.log('Starting saveResponse...'); // Debugging log
+    console.log('Parameters:', { surveyId, userId, question, answer }); // Debugging log
+
     // Save the user's answer in the 'results' table
     const result = await Result.create({
       surveyId, // Linking the response to the survey
@@ -20,8 +28,10 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
       answer,   // The answer provided by the user
     });
 
+    console.log('Response saved successfully:', result); // Debugging log
     return result; // Return the saved response
   } catch (error) {
+    console.error('Error saving response:', error); // Debugging log
     throw new Error('Error saving response: ' + error.message);
   }
 };
@@ -29,6 +39,9 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
 // Function to get all responses for a particular survey
 export const getResponsesBySurvey = async (surveyId) => {
   try {
+    console.log('Starting getResponsesBySurvey...'); // Debugging log
+    console.log('Survey ID:', surveyId); // Debugging log
+
     // Find all responses linked to a specific survey
     const responses = await Result.findAll({
       where: {
@@ -36,19 +49,26 @@ export const getResponsesBySurvey = async (surveyId) => {
       },
     });
 
+    console.log('Fetched Responses:', responses); // Debugging log
+
     if (!responses.length) {
-      throw new Error('No responses found for this survey'); // If no responses found, throw an error
+      console.log('No responses found for this survey'); // Debugging log
+      throw new Error('No responses found for this survey');
     }
 
     return responses; // Return the list of responses
   } catch (error) {
-    throw new Error('Error fetching survey responses: ' + error.message); // If any error occurs, throw an error
+    console.error('Error fetching survey responses:', error); // Debugging log
+    throw new Error('Error fetching survey responses: ' + error.message);
   }
 };
 
 // Function to get all responses from a specific user
 export const getUserResponses = async (userId) => {
   try {
+    console.log('Starting getUserResponses...'); // Debugging log
+    console.log('User ID:', userId); // Debugging log
+
     // Find all responses given by a particular user
     const userResponses = await Result.findAll({
       where: {
@@ -56,19 +76,26 @@ export const getUserResponses = async (userId) => {
       },
     });
 
+    console.log('Fetched User Responses:', userResponses); // Debugging log
+
     if (!userResponses.length) {
-      throw new Error('No responses found for this user'); // If no responses found, throw an error
+      console.log('No responses found for this user'); // Debugging log
+      throw new Error('No responses found for this user');
     }
 
     return userResponses; // Return the list of responses from the user
   } catch (error) {
-    throw new Error('Error fetching user responses: ' + error.message); // If any error occurs, throw an error
+    console.error('Error fetching user responses:', error); // Debugging log
+    throw new Error('Error fetching user responses: ' + error.message);
   }
 };
 
 // Function to get responses for a specific question from a survey
 export const getResponsesByQuestion = async (surveyId, question) => {
   try {
+    console.log('Starting getResponsesByQuestion...'); // Debugging log
+    console.log('Parameters:', { surveyId, question }); // Debugging log
+
     // Find all responses for a specific survey and question
     const responses = await Result.findAll({
       where: {
@@ -77,13 +104,17 @@ export const getResponsesByQuestion = async (surveyId, question) => {
       },
     });
 
+    console.log('Fetched Responses for Question:', responses); // Debugging log
+
     if (!responses.length) {
-      throw new Error('No responses found for this question'); // If no responses found, throw an error
+      console.log('No responses found for this question'); // Debugging log
+      throw new Error('No responses found for this question');
     }
 
     return responses; // Return the responses for the specific question
   } catch (error) {
-    throw new Error('Error fetching responses for the question: ' + error.message); // If any error occurs, throw an error
+    console.error('Error fetching responses for the question:', error); // Debugging log
+    throw new Error('Error fetching responses for the question: ' + error.message);
   }
 };
 
