@@ -57,12 +57,12 @@ export const getActiveSurveys = async (req, res) => {
 // Controller to respond to a survey
 export const respondToSurvey = async (req, res) => {
   try {
-    console.log('Received response for survey:', req.params.id, req.body); // Debugging log
+    console.log('Received response for survey:', req.params.id, req.body);
 
     const surveyId = req.params.id;
     const userId = req.user?.userId; // Ensure user is authenticated (use userId from JWT)
     if (!userId) {
-      console.error('User not authenticated or userId missing'); // Debugging log
+      console.error('User not authenticated or userId missing');
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
@@ -107,6 +107,18 @@ export const respondToSurvey = async (req, res) => {
     const savedResponse = await Result.bulkCreate(resultEntries);
 
     console.log('Response successfully recorded:', savedResponse); // Debugging log
+
+    // Log each saved response to verify the question field
+    savedResponse.forEach((response, index) => {
+      console.log(`Saved Response ${index + 1}:`, {
+        id: response.id,
+        surveyId: response.surveyId,
+        userId: response.userId,
+        question: response.question, // Verify the question field
+        answer: response.answer,
+      });
+    });
+
     res.status(200).json({ message: 'Response recorded successfully' });
   } catch (error) {
     console.error('Error recording response:', error); // Debugging log
