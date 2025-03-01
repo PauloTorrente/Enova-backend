@@ -10,10 +10,12 @@ router.post('/', authenticateAdmin, surveysController.createSurvey); // Create a
 router.delete('/:id', authenticateAdmin, surveysController.deleteSurvey); // Delete a survey (admin only)
 
 // Public routes
-router.get('/:id', surveysController.getSurveyById); // Get survey by ID
 router.get('/active', surveysController.getActiveSurveys); // Get active surveys
 
-// Apply authentication middleware here, so only authenticated users can respond
+// Route to respond to a survey by token (must come before /:id to avoid conflicts)
 router.post('/respond', authenticateUser, surveysController.respondToSurveyByToken); // Respond to a survey by token (authentication required)
+
+// Route to get a survey by ID (must come after /respond to avoid conflicts)
+router.get('/:id', surveysController.getSurveyById); // Get survey by ID
 
 export default router;
