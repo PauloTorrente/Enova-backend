@@ -120,3 +120,26 @@ export const deleteSurvey = async (req, res) => {
     res.status(500).json({ message: 'Internal error while deleting survey' });
   }
 };
+
+// Controller to get a survey by access token
+export const getSurveyByAccessToken = async (req, res) => {
+  try {
+    const accessToken = req.query.accessToken; // Get the accessToken from the query
+
+    if (!accessToken) {
+      return res.status(400).json({ message: 'Access token is required' });
+    }
+
+    // Fetch the survey using the accessToken
+    const survey = await surveysService.getSurveyByAccessToken(accessToken);
+
+    if (!survey) {
+      return res.status(404).json({ message: 'Survey not found' });
+    }
+
+    res.status(200).json(survey);
+  } catch (error) {
+    console.error('Error fetching survey by access token:', error);
+    res.status(500).json({ message: 'Internal error while fetching survey' });
+  }
+};

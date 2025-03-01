@@ -15,4 +15,7 @@ router.get('/active', surveysController.getActiveSurveys); // Get active surveys
 // Route to respond to a survey by token
 router.post('/respond', authenticateUser, surveysController.respondToSurveyByToken); // Respond to a survey by token (authentication required)
 
+// Route to respond to a survey by token
+router.post('/respond', authenticateUser, surveysController.respondToSurveyByToken); // Respond to a survey by token (authentication required)
+
 export default router;
