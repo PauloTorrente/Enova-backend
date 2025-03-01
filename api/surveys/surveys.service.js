@@ -107,6 +107,19 @@ export const deleteSurvey = async (surveyId) => {
   }
 };
 
+// Function to get a survey by ID
+export const getSurveyById = async (surveyId) => {
+  try {
+    const survey = await Survey.findByPk(surveyId); // Find survey by primary key (ID)
+    if (!survey) {
+      return null; // Return null if survey is not found
+    }
+    return survey; // Return the found survey
+  } catch (error) {
+    throw new Error('Error fetching survey by ID: ' + error.message);
+  }
+};
+
 // Function to get a survey by access token
 export const getSurveyByAccessToken = async (accessToken) => {
   try {
@@ -126,6 +139,7 @@ export const getSurveyByAccessToken = async (accessToken) => {
   }
 };
 
+// Export all service functions
 const surveysService = {
   createSurvey,
   getActiveSurveys,
@@ -133,7 +147,8 @@ const surveysService = {
   generateSurveyToken,
   saveResponse,
   deleteSurvey,
-  getSurveyByAccessToken, // Add the new function to the service object
+  getSurveyById, // Added function to get survey by ID
+  getSurveyByAccessToken, // Added function to get survey by access token
 };
 
 export default surveysService;
