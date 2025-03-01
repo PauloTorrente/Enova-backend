@@ -12,10 +12,7 @@ router.delete('/:id', authenticateAdmin, surveysController.deleteSurvey); // Del
 // Public routes
 router.get('/active', surveysController.getActiveSurveys); // Get active surveys
 
-// Route to respond to a survey by token (must come before /:id to avoid conflicts)
+// Route to respond to a survey by token
 router.post('/respond', authenticateUser, surveysController.respondToSurveyByToken); // Respond to a survey by token (authentication required)
-
-// Route to get a survey by ID (must come after /respond to avoid conflicts)
-router.get('/:id', surveysController.getSurveyById); // Get survey by ID
 
 export default router;

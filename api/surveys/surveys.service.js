@@ -41,24 +41,22 @@ export const getActiveSurveys = async () => {
   }
 };
 
-// Function to check and update expired surveys' status
-export const checkSurveyExpiration = async () => {
+// Function to get a survey by access token
+export const getSurveyByAccessToken = async (accessToken) => {
   try {
-    const surveys = await Survey.findAll({
+    const survey = await Survey.findOne({
       where: {
-        expirationTime: {
-          [Op.lt]: new Date(),
-        },
-        status: 'active',
+        accessToken: accessToken, // Filter by accessToken
       },
     });
 
-    for (let survey of surveys) {
-      survey.status = 'expired';
-      await survey.save();
+    if (!survey) {
+      return null; // Return null if survey is not found
     }
+
+    return survey; // Return the found survey
   } catch (error) {
-    throw new Error('Error checking survey expiration: ' + error.message);
+    throw new Error('Error fetching survey by access token: ' + error.message);
   }
 };
 
@@ -107,48 +105,13 @@ export const deleteSurvey = async (surveyId) => {
   }
 };
 
-// Function to get a survey by ID
-export const getSurveyById = async (surveyId) => {
-  try {
-    const survey = await Survey.findByPk(surveyId); // Find survey by primary key (ID)
-    if (!survey) {
-      return null; // Return null if survey is not found
-    }
-    return survey; // Return the found survey
-  } catch (error) {
-    throw new Error('Error fetching survey by ID: ' + error.message);
-  }
-};
-
-// Function to get a survey by access token
-export const getSurveyByAccessToken = async (accessToken) => {
-  try {
-    const survey = await Survey.findOne({
-      where: {
-        accessToken: accessToken, // Filter by accessToken
-      },
-    });
-
-    if (!survey) {
-      return null; // Return null if survey is not found
-    }
-
-    return survey; // Return the found survey
-  } catch (error) {
-    throw new Error('Error fetching survey by access token: ' + error.message);
-  }
-};
-
 // Export all service functions
 const surveysService = {
   createSurvey,
   getActiveSurveys,
-  checkSurveyExpiration,
-  generateSurveyToken,
+  getSurveyByAccessToken,
   saveResponse,
   deleteSurvey,
-  getSurveyById, // Added function to get survey by ID
-  getSurveyByAccessToken, // Added function to get survey by access token
 };
 
 export default surveysService;

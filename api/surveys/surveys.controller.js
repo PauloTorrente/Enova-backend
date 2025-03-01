@@ -19,27 +19,6 @@ export const createSurvey = async (req, res) => {
   }
 };
 
-// Controller to get a survey by ID
-export const getSurveyById = async (req, res) => {
-  try {
-    console.log(`Fetching survey with ID: ${req.params.id}`); // Debugging log
-
-    const surveyId = req.params.id;
-    const survey = await surveysService.getSurveyById(surveyId);
-
-    if (!survey) {
-      console.warn(`Survey not found: ID ${surveyId}`); // Debugging log
-      return res.status(404).json({ message: 'Survey not found' });
-    }
-
-    console.log('Survey found:', survey); // Debugging log
-    res.status(200).json(survey);
-  } catch (error) {
-    console.error('Error fetching survey by ID:', error); // Debugging log
-    res.status(500).json({ message: 'Internal error while fetching survey' });
-  }
-};
-
 // Controller to get active surveys
 export const getActiveSurveys = async (req, res) => {
   try {
