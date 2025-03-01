@@ -14,6 +14,6 @@ router.get('/:id', surveysController.getSurveyById); // Get survey by ID
 router.get('/active', surveysController.getActiveSurveys); // Get active surveys
 
 // Apply authentication middleware here, so only authenticated users can respond
-router.post('/:id/respond', authenticateUser, surveysController.respondToSurvey); // Respond to a survey (authentication required)
+router.post('/respond', authenticateUser, surveysController.respondToSurveyByToken); // Respond to a survey by token (authentication required)
 
 export default router;

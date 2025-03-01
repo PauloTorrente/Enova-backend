@@ -54,16 +54,25 @@ export const getActiveSurveys = async (req, res) => {
   }
 };
 
-// Controller to respond to a survey
-export const respondToSurvey = async (req, res) => {
+// Controller to respond to a survey by token
+export const respondToSurveyByToken = async (req, res) => {
   try {
-    console.log('Received response for survey:', req.params.id, req.body);
+    console.log('Received response for survey by token:', req.body); // Debugging log
 
-    const surveyId = req.params.id;
+    const accessToken = req.query.accessToken; // Get the accessToken from the query
     const userId = req.user?.userId; // Ensure user is authenticated (use userId from JWT)
-    if (!userId) {
-      console.error('User not authenticated or userId missing');
-      return res.status(401).json({ message: 'User not authenticated' });
+
+    if (!accessToken) {
+      console.error('Access token is missing'); // Debugging log
+      return res.status(400).json({ message: 'Access token is required' });
+    }
+
+    // Fetch the survey using the accessToken
+    const survey = await surveysService.getSurveyByAccessToken(accessToken);
+
+    if (!survey) {
+      console.error('Survey not found for the provided access token'); // Debugging log
+      return res.status(404).json({ message: 'Survey not found' });
     }
 
     const response = req.body;
@@ -73,15 +82,6 @@ export const respondToSurvey = async (req, res) => {
       console.log('Response is missing questionId or answer'); // Debugging log
       return res.status(400).json({ message: 'Response is missing questionId or answer' });
     }
-
-    // Fetch the survey to get the questions
-    const survey = await Survey.findByPk(surveyId);
-    if (!survey) {
-      console.log('Survey not found'); // Debugging log
-      return res.status(404).json({ message: 'Survey not found' });
-    }
-
-    console.log('Survey found:', survey); // Debugging log
 
     // Map the response to include the question text
     const resultEntries = response.map(item => {
@@ -94,7 +94,7 @@ export const respondToSurvey = async (req, res) => {
       console.log('Question found:', questionObj); // Debugging log
 
       return {
-        surveyId,
+        surveyId: survey.id,
         userId,
         question: questionObj.question, // Add the question text here
         answer: item.answer,            // Store the answer

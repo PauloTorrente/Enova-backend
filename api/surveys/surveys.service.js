@@ -107,13 +107,33 @@ export const deleteSurvey = async (surveyId) => {
   }
 };
 
+// Function to get a survey by access token
+export const getSurveyByAccessToken = async (accessToken) => {
+  try {
+    const survey = await Survey.findOne({
+      where: {
+        accessToken: accessToken, // Filter by accessToken
+      },
+    });
+
+    if (!survey) {
+      return null; // Return null if survey is not found
+    }
+
+    return survey; // Return the found survey
+  } catch (error) {
+    throw new Error('Error fetching survey by access token: ' + error.message);
+  }
+};
+
 const surveysService = {
   createSurvey,
   getActiveSurveys,
   checkSurveyExpiration,
   generateSurveyToken,
   saveResponse,
-  deleteSurvey
+  deleteSurvey,
+  getSurveyByAccessToken, // Add the new function to the service object
 };
 
 export default surveysService;
