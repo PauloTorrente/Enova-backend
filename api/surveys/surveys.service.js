@@ -27,6 +27,7 @@ export const createSurvey = async (surveyData) => {
 // Function to get active surveys
 export const getActiveSurveys = async () => {
   try {
+    console.log('Fetching active surveys from database...'); 
     const surveys = await Survey.findAll({
       where: {
         status: 'active',
@@ -35,8 +36,10 @@ export const getActiveSurveys = async () => {
         },
       },
     });
+    console.log('Active surveys found:', surveys);
     return surveys;
   } catch (error) {
+    console.error('Error fetching active surveys:', error); 
     throw new Error('Error fetching active surveys: ' + error.message);
   }
 };
@@ -85,7 +88,6 @@ export const saveResponse = async (surveyId, userId, response) => {
 
     // Save all the results
     const results = await Result.bulkCreate(resultEntries);
-
     return results;
   } catch (error) {
     throw new Error('Error saving response: ' + error.message);
