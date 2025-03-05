@@ -28,6 +28,10 @@ const Result = sequelize.define('Result', {
     onDelete: 'CASCADE', // If the user is deleted, their responses will also be deleted
     field: 'user_id', // Ensuring the correct column name in the database (snake_case)
   },
+  surveyTitle: {
+    type: DataTypes.STRING, // New field to store the survey title
+    allowNull: false, // Cannot be null, we need the survey title for reporting
+  },
   question: {
     type: DataTypes.STRING, // The question from the survey that was answered
     allowNull: false, // Cannot be null, we need the question to store the response

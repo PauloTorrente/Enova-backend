@@ -2,13 +2,14 @@ import * as resultsService from './results.service.js'; // Importing the results
 import { validationResult } from 'express-validator'; // Importing express-validator to validate incoming requests
 import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; // Importing the authentication middleware for admins
 import Survey from '../surveys/surveys.model.js'; // Importing the Survey model to fetch survey details
+import xlsx from 'xlsx'; // Importing xlsx library for Excel file generation
 
 // Controller function to save a response for a survey
 export const saveResponse = async (req, res) => {
   try {
     console.log('Starting saveResponse...'); // Debugging log
 
-    // Validate any request errors
+    // Validate any request errors using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation failed', errors.array()); // Debugging log
@@ -19,7 +20,7 @@ export const saveResponse = async (req, res) => {
     const { surveyId, userId, questionId, answer } = req.body;
     console.log('Request Body:', { surveyId, userId, questionId, answer }); // Debugging log
 
-    // Fetch the survey to get the question text
+    // Fetch the survey to get the question text and title
     const survey = await Survey.findByPk(surveyId);
     if (!survey) {
       console.log('Survey not found'); // Debugging log
@@ -37,12 +38,14 @@ export const saveResponse = async (req, res) => {
 
     console.log('Question found:', questionObj); // Debugging log
 
-    // Extract the question text
+    // Extract the question text and survey title
     const questionText = questionObj.question;
+    const surveyTitle = survey.title; // Extracting the survey title
     console.log('Extracted Question Text:', questionText); // Debugging log
+    console.log('Extracted Survey Title:', surveyTitle); // Debugging log
 
     // Call the resultsService to save the response
-    const result = await resultsService.saveResponse(surveyId, userId, questionText, answer);
+    const result = await resultsService.saveResponse(surveyId, userId, surveyTitle, questionText, answer);
     console.log('Saved Response:', result); // Debugging log
 
     // Return a success response with the saved result
@@ -164,12 +167,48 @@ export const getResponsesByQuestion = async (req, res) => {
   }
 };
 
+// Controller function to export responses to Excel
+export const exportResponsesToExcel = async (req, res) => {
+  try {
+    const { surveyId } = req.params; // Extract surveyId from URL parameters
+
+    // Fetch all responses for the survey
+    const responses = await resultsService.getResponsesBySurvey(surveyId);
+
+    // Map responses to a format suitable for Excel
+    const data = responses.map(response => ({
+      SurveyTitle: response.surveyTitle,
+      Question: response.question,
+      Answer: JSON.stringify(response.answer), // Convert JSON answer to string
+    }));
+
+    // Create a new Excel workbook and worksheet
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Responses');
+
+    // Generate the Excel file as a buffer
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set response headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=responses_${surveyId}.xlsx`);
+
+    // Send the Excel file as the response
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error exporting responses:', error); // Debugging log
+    res.status(500).json({ message: 'Error exporting responses', error: error.message });
+  }
+};
+
 // Exporting all controller functions for use in routes
 const resultsController = {
   saveResponse,
   getResponsesBySurvey,
   getUserResponses,
   getResponsesByQuestion,
+  exportResponsesToExcel, // Added the new export function
 };
 
 export default resultsController;

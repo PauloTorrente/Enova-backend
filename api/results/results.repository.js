@@ -2,28 +2,29 @@ import { Op } from 'sequelize';
 import Result from './results.model.js'; // Importing the Result model to interact with the database
 
 // Function to save a response to the database
-export const saveResponse = async (surveyId, userId, question, answer) => {
+export const saveResponse = async (surveyId, userId, surveyTitle, question, answer) => {
   try {
-    console.log('Starting saveResponse...');
-    console.log(`surveyId: ${surveyId}, userId: ${userId}, question: ${question}, answer: ${answer}`);
+    console.log('Starting saveResponse...'); // Debugging log
+    console.log(`surveyId: ${surveyId}, userId: ${userId}, surveyTitle: ${surveyTitle}, question: ${question}, answer: ${answer}`); // Debugging log
 
-    // Check if the surveyId, userId, question, and answer are valid
-    if (!surveyId || !userId || !question || !answer) {
-      throw new Error('All fields (surveyId, userId, question, and answer) are required');
+    // Check if the surveyId, userId, surveyTitle, question, and answer are valid
+    if (!surveyId || !userId || !surveyTitle || !question || !answer) {
+      throw new Error('All fields (surveyId, userId, surveyTitle, question, and answer) are required');
     }
 
     // Creating a new response entry in the Result model
     const newResult = await Result.create({
-      surveyId,     // Survey ID that the response belongs to
-      userId,       // User ID who answered the survey
-      question,     // The specific question being answered
-      answer,       // The answer provided by the user
+      surveyId, // Linking the response to the survey
+      userId, // Linking the response to the user
+      surveyTitle, // Storing the survey title
+      question, // The specific question being answered
+      answer, // The answer provided by the user
     });
 
-    console.log('Response saved successfully:', newResult);
+    console.log('Response saved successfully:', newResult); // Debugging log
     return newResult; // Returning the saved result entry
   } catch (error) {
-    console.error('Error in saveResponse:', error.message);
+    console.error('Error in saveResponse:', error.message); // Debugging log
     throw new Error('Error saving response to the database: ' + error.message);
   }
 };
@@ -31,8 +32,8 @@ export const saveResponse = async (surveyId, userId, question, answer) => {
 // Function to get all responses for a specific survey
 export const getResponsesBySurvey = async (surveyId) => {
   try {
-    console.log('Starting getResponsesBySurvey...');
-    console.log(`surveyId: ${surveyId}`);
+    console.log('Starting getResponsesBySurvey...'); // Debugging log
+    console.log(`surveyId: ${surveyId}`); // Debugging log
 
     // Ensure surveyId is provided
     if (!surveyId) {
@@ -46,10 +47,10 @@ export const getResponsesBySurvey = async (surveyId) => {
       },
     });
 
-    console.log(`Found ${responses.length} responses for surveyId: ${surveyId}`);
+    console.log(`Found ${responses.length} responses for surveyId: ${surveyId}`); // Debugging log
     return responses; // Returning the list of responses
   } catch (error) {
-    console.error('Error in getResponsesBySurvey:', error.message);
+    console.error('Error in getResponsesBySurvey:', error.message); // Debugging log
     throw new Error('Error fetching responses for survey: ' + error.message);
   }
 };
@@ -57,8 +58,8 @@ export const getResponsesBySurvey = async (surveyId) => {
 // Function to get all responses for a specific user
 export const getUserResponses = async (userId) => {
   try {
-    console.log('Starting getUserResponses...');
-    console.log(`userId: ${userId}`);
+    console.log('Starting getUserResponses...'); // Debugging log
+    console.log(`userId: ${userId}`); // Debugging log
 
     // Ensure userId is provided
     if (!userId) {
@@ -72,10 +73,10 @@ export const getUserResponses = async (userId) => {
       },
     });
 
-    console.log(`Found ${responses.length} responses for userId: ${userId}`);
+    console.log(`Found ${responses.length} responses for userId: ${userId}`); // Debugging log
     return responses; // Returning the list of user responses
   } catch (error) {
-    console.error('Error in getUserResponses:', error.message);
+    console.error('Error in getUserResponses:', error.message); // Debugging log
     throw new Error('Error fetching responses for user: ' + error.message);
   }
 };
@@ -83,8 +84,8 @@ export const getUserResponses = async (userId) => {
 // Function to get all responses for a specific question in a survey
 export const getResponsesByQuestion = async (surveyId, question) => {
   try {
-    console.log('Starting getResponsesByQuestion...');
-    console.log(`surveyId: ${surveyId}, question: ${question}`);
+    console.log('Starting getResponsesByQuestion...'); // Debugging log
+    console.log(`surveyId: ${surveyId}, question: ${question}`); // Debugging log
 
     // Ensure surveyId and question are provided
     if (!surveyId || !question) {
@@ -94,15 +95,15 @@ export const getResponsesByQuestion = async (surveyId, question) => {
     // Fetching all responses for a specific question in a survey
     const responses = await Result.findAll({
       where: {
-        surveyId,    // The survey to which the question belongs
-        question,    // The specific question being answered
+        surveyId, // The survey to which the question belongs
+        question, // The specific question being answered
       },
     });
 
-    console.log(`Found ${responses.length} responses for surveyId: ${surveyId}, question: ${question}`);
+    console.log(`Found ${responses.length} responses for surveyId: ${surveyId}, question: ${question}`); // Debugging log
     return responses; // Returning the list of responses for the specific question
   } catch (error) {
-    console.error('Error in getResponsesByQuestion:', error.message);
+    console.error('Error in getResponsesByQuestion:', error.message); // Debugging log
     throw new Error('Error fetching responses for question: ' + error.message);
   }
 };

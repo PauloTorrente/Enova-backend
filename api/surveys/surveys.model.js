@@ -40,5 +40,3 @@ const Survey = sequelize.define('Survey', {
 });
 
 export default Survey;
-
-//this one

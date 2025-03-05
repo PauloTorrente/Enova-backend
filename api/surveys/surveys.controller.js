@@ -62,7 +62,7 @@ export const respondToSurveyByToken = async (req, res) => {
       return res.status(400).json({ message: 'Response is missing questionId or answer' });
     }
 
-    // Map the response to include the question text
+    // Map the response to include the question text and survey title
     const resultEntries = response.map(item => {
       const questionObj = survey.questions.find(q => q.questionId === item.questionId);
       if (!questionObj) {
@@ -75,8 +75,9 @@ export const respondToSurveyByToken = async (req, res) => {
       return {
         surveyId: survey.id,
         userId,
+        surveyTitle: survey.title, // Adding the survey title to the response
         question: questionObj.question, // Add the question text here
-        answer: item.answer,            // Store the answer
+        answer: item.answer, // Store the answer
       };
     });
 
@@ -93,6 +94,7 @@ export const respondToSurveyByToken = async (req, res) => {
         id: response.id,
         surveyId: response.surveyId,
         userId: response.userId,
+        surveyTitle: response.surveyTitle, // Verify the survey title field
         question: response.question, // Verify the question field
         answer: response.answer,
       });

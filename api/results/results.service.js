@@ -15,17 +15,18 @@ const checkSurveyExistence = async (surveyId) => {
 };
 
 // Function to save a response for a user
-export const saveResponse = async (surveyId, userId, question, answer) => {
+export const saveResponse = async (surveyId, userId, surveyTitle, question, answer) => {
   try {
     console.log('Starting saveResponse...'); // Debugging log
-    console.log('Parameters:', { surveyId, userId, question, answer }); // Debugging log
+    console.log('Parameters:', { surveyId, userId, surveyTitle, question, answer }); // Debugging log
 
     // Save the user's answer in the 'results' table
     const result = await Result.create({
       surveyId, // Linking the response to the survey
-      userId,   // Linking the response to the user
+      userId, // Linking the response to the user
+      surveyTitle, // Storing the survey title
       question, // The question asked in the survey
-      answer,   // The answer provided by the user
+      answer, // The answer provided by the user
     });
 
     console.log('Response saved successfully:', result); // Debugging log
@@ -100,7 +101,7 @@ export const getResponsesByQuestion = async (surveyId, question) => {
     const responses = await Result.findAll({
       where: {
         surveyId: surveyId, // Filter by survey ID
-        question: question,  // Filter by the question
+        question: question, // Filter by the question
       },
     });
 

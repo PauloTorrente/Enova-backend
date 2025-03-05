@@ -16,4 +16,7 @@ router.get('/user/:userId', authenticateAdmin, resultsController.getUserResponse
 // Route to get responses for a specific question in a survey (admin only)
 router.get('/survey/:surveyId/question/:question', authenticateAdmin, resultsController.getResponsesByQuestion);
 
+// Route to export responses to Excel (admin only)
+router.get('/export/:surveyId', authenticateAdmin, resultsController.exportResponsesToExcel);
+
 export default router;
