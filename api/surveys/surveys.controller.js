@@ -26,7 +26,7 @@ export const getActiveSurveys = async (req, res) => {
     const activeSurveys = await surveysService.getActiveSurveys();
 
     console.log(`Found ${activeSurveys.length} active surveys`); // Debugging log
-    res.status(200).json(activeSurveys);
+    res.status(200).json({ surveys: activeSurveys }); // Encapsula o array em um objeto
   } catch (error) {
     console.error('Error fetching active surveys:', error); // Debugging log
     res.status(500).json({ message: 'Internal error while fetching active surveys' });
