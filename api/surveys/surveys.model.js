@@ -39,4 +39,12 @@ const Survey = sequelize.define('Survey', {
   timestamps: false, // Disable automatic creation of createdAt and updatedAt columns
 });
 
+// Define the association between Survey and Result
+Survey.associate = (models) => {
+  Survey.hasMany(models.Result, {
+    foreignKey: 'surveyId', // Foreign key in the Result model
+    as: 'results', // Alias for the association
+  });
+};
+
 export default Survey;

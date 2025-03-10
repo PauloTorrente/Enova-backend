@@ -28,10 +28,6 @@ const Result = sequelize.define('Result', {
     onDelete: 'CASCADE', // If the user is deleted, their responses will also be deleted
     field: 'user_id', // Ensuring the correct column name in the database (snake_case)
   },
-  surveyTitle: {
-    type: DataTypes.STRING, // New field to store the survey title
-    allowNull: false, // Cannot be null, we need the survey title for reporting
-  },
   question: {
     type: DataTypes.STRING, // The question from the survey that was answered
     allowNull: false, // Cannot be null, we need the question to store the response
@@ -44,6 +40,14 @@ const Result = sequelize.define('Result', {
   tableName: 'results', // Defining the table name in the database
   timestamps: false, // Disabling automatic creation of createdAt and updatedAt columns
 });
+
+// Define the association between Result and Survey
+Result.associate = (models) => {
+  Result.belongsTo(models.Survey, {
+    foreignKey: 'surveyId', // Foreign key in the Result model
+    as: 'survey', // Alias for the association
+  });
+};
 
 // Exporting the Result model for use in other files
 export default Result;

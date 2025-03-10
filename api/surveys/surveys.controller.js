@@ -111,10 +111,8 @@ export const respondToSurveyByToken = async (req, res) => {
 export const deleteSurvey = async (req, res) => {
   try {
     console.log(`Received request to delete survey with ID: ${req.params.id}`); // Debugging log
-
     const surveyId = req.params.id;
     await surveysService.deleteSurvey(surveyId);
-
     console.log(`Survey successfully deleted: ID ${surveyId}`); // Debugging log
     res.status(200).json({ message: 'Survey deleted successfully' });
   } catch (error) {
