@@ -4,7 +4,7 @@ import bcryptjs from 'bcryptjs';
 import transporter from '../../config/nodemailer.config.js';
 
 // Register a new user and send confirmation email
-export async function register({ email, password, role }) {
+export async function register({ email, password, role, firstName, lastName }) {
   const confirmationToken = crypto.randomBytes(20).toString('hex');  // Generate a random token for user confirmation
   const hashedPassword = await bcryptjs.hash(password, 10);  // Encrypt password using bcryptjs
 
@@ -12,6 +12,8 @@ export async function register({ email, password, role }) {
     email,
     password: hashedPassword,
     role,
+    firstName,
+    lastName,
     deleted: false,
     isConfirmed: false,
     confirmationToken,

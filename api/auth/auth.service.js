@@ -80,6 +80,7 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     console.log('Confirmation email sent to:', email);
   } catch (error) {
     console.error('Error sending confirmation email:', error);
+    throw new Error('Error sending confirmation email.');
   }
 
   return newUser;
