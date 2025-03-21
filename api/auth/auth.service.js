@@ -91,7 +91,7 @@ export const login = async (email, password) => {
   // Check if the user exists
   const user = await User.findOne({ where: { email } });
   if (!user) {
-    throw new Error('Invalid credentials.');
+    throw new Error('The email or password may be incorrect.'); // Updated error message
   }
 
   // Ensure the user has confirmed their email before logging in
@@ -102,7 +102,7 @@ export const login = async (email, password) => {
   // Verify the provided password
   const isPasswordValid = await bcryptjs.compare(password, user.password);
   if (!isPasswordValid) {
-    throw new Error('Invalid credentials.');
+    throw new Error('The email or password may be incorrect.'); // Updated error message
   }
 
   // Generate JWT token for authentication
