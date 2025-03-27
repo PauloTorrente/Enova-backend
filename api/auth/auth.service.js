@@ -65,7 +65,11 @@ export const register = async ({ email, password, role, firstName, lastName, gen
 
   // Read the email template file
   let emailTemplate = fs.readFileSync(templatePath, 'utf-8');
-  const confirmationUrl = `https://enova-backend.onrender.com/api/users/confirm/${confirmationToken}`;
+  
+  // Create the confirmation URL with the token
+  const confirmationUrl = `https://opinacash.com/register-success/${confirmationToken}`;
+  
+  // Replace the placeholder in the email template with the actual confirmation URL
   emailTemplate = emailTemplate.replace('{{confirmationUrl}}', confirmationUrl);
 
   // Send the confirmation email
