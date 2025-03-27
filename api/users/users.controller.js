@@ -28,7 +28,7 @@ export const confirmUser = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
-    const expirationTime = 5 * 60 * 1000; // Token expiration time (5 minutes)
+    const expirationTime = 60 * 60 * 1000; // Token expiration time (1 hour)
     const isExpired = Date.now() - new Date(user.createdAt).getTime() > expirationTime;
 
     if (isExpired) {
