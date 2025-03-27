@@ -95,7 +95,7 @@ export const login = async (email, password) => {
   // Check if the user exists
   const user = await User.findOne({ where: { email } });
   if (!user) {
-    throw new Error('The email or password may be incorrect.'); // Updated error message
+    throw new Error('The email or password may be incorrect.');
   }
 
   // Ensure the user has confirmed their email before logging in
@@ -106,22 +106,25 @@ export const login = async (email, password) => {
   // Verify the provided password
   const isPasswordValid = await bcryptjs.compare(password, user.password);
   if (!isPasswordValid) {
-    throw new Error('The email or password may be incorrect.'); // Updated error message
+    throw new Error('The email or password may be incorrect.');
   }
 
   // Generate JWT token for authentication
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET, // Use JWT_SECRET to sign the token
+    process.env.JWT_SECRET, 
     { expiresIn: '1h' }
   );
 
   // Generate a refresh token for session management
   const refreshToken = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET, // Use JWT_SECRET to sign the token
+    process.env.JWT_SECRET, 
     { expiresIn: '7d' }
   );
+
+  console.log('Generated token:', token);
+  console.log('Generated refresh token:', refreshToken);
 
   return { token, refreshToken };
 };
@@ -130,17 +133,19 @@ export const login = async (email, password) => {
 export const refreshToken = async (oldRefreshToken) => {
   try {
     // Verify the old refresh token
-    const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET); // Use JWT_SECRET to validate the token
+    const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET);
 
     // Generate a new access token
     const newToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email, role: decoded.role },
-      process.env.JWT_SECRET, // Use JWT_SECRET to sign the new token
+      process.env.JWT_SECRET, 
       { expiresIn: '1h' }
     );
 
+    console.log('New token generated:', newToken);
     return newToken;
   } catch (error) {
+    console.error('Invalid refresh token:', error);
     throw new Error('Invalid refresh token.');
   }
 };
