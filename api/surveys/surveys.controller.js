@@ -33,13 +33,13 @@ export const getActiveSurveys = async (req, res) => {
   }
 };
 
-// Controller to respond to a survey by token
+// Controller to respond to a survey by token 
 export const respondToSurveyByToken = async (req, res) => {
   try {
-    console.log('Received response for survey by token:', req.body); // Debugging log
+    console.log('Received response for survey by token:', req.body);
 
-    const accessToken = req.query.accessToken; // Get the accessToken from the query
-    const userId = req.user?.userId; // Ensure user is authenticated (use userId from JWT)
+    const accessToken = req.query.accessToken;
+    const userId = req.user?.userId;
 
     if (!accessToken) {
       console.error('Access token is missing'); // Debugging log
@@ -55,19 +55,35 @@ export const respondToSurveyByToken = async (req, res) => {
     }
 
     const response = req.body;
-
-    // Ensure the response contains valid data
-    if (!Array.isArray(response) || response.some(item => !item.questionId || !item.answer)) {
-      console.log('Response is missing questionId or answer'); // Debugging log
-      return res.status(400).json({ message: 'Response is missing questionId or answer' });
+    if (!Array.isArray(response)) {
+      return res.status(400).json({ message: 'Response should be an array' });
     }
 
-    // Map the response to include the question text and survey title
+    // Parse questions if they are stored as string
+    let questions = typeof survey.questions === 'string' 
+      ? JSON.parse(survey.questions) 
+      : survey.questions;
+
+    // Normalize question IDs for comparison
+    questions = questions.map((q, index) => ({
+      ...q,
+      questionId: q.questionId || q.id || index + 1
+    }));
+
+    console.log('Survey questions with normalized IDs:', questions);
+
     const resultEntries = response.map(item => {
-      const questionObj = survey.questions.find(q => q.questionId === item.questionId);
+      // Find question by ID (try both questionId and id fields)
+      const questionObj = questions.find(q => 
+        q.questionId === item.questionId || q.id === item.questionId
+      );
+
       if (!questionObj) {
-        console.log('Question not found in the survey'); // Debugging log
-        throw new Error('Question not found in the survey');
+        console.error('Question not found:', {
+          receivedQuestionId: item.questionId,
+          availableQuestions: questions.map(q => q.questionId)
+        });
+        throw new Error(`Question with ID ${item.questionId} not found in survey`);
       }
 
       console.log('Question found:', questionObj); // Debugging log
@@ -75,9 +91,9 @@ export const respondToSurveyByToken = async (req, res) => {
       return {
         surveyId: survey.id,
         userId,
-        surveyTitle: survey.title, // Adding the survey title to the response
-        question: questionObj.question, // Add the question text here
-        answer: item.answer, // Store the answer
+        surveyTitle: survey.title,
+        question: questionObj.question || questionObj.text,
+        answer: item.answer,
       };
     });
 
@@ -85,25 +101,13 @@ export const respondToSurveyByToken = async (req, res) => {
 
     // Save all the results
     const savedResponse = await Result.bulkCreate(resultEntries);
-
-    console.log('Response successfully recorded:', savedResponse); // Debugging log
-
-    // Log each saved response to verify the question field
-    savedResponse.forEach((response, index) => {
-      console.log(`Saved Response ${index + 1}:`, {
-        id: response.id,
-        surveyId: response.surveyId,
-        userId: response.userId,
-        surveyTitle: response.surveyTitle, // Verify the survey title field
-        question: response.question, // Verify the question field
-        answer: response.answer,
-      });
-    });
-
-    res.status(200).json({ message: 'Response recorded successfully' });
+    return res.status(200).json({ message: 'Response recorded successfully' });
   } catch (error) {
-    console.error('Error recording response:', error); // Debugging log
-    res.status(500).json({ message: 'Internal error while recording response' });
+    console.error('Error recording response:', error);
+    res.status(500).json({ 
+      message: error.message || 'Internal error while recording response',
+      details: error.details || null
+    });
   }
 };
 
