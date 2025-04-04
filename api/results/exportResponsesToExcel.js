@@ -1,5 +1,5 @@
-import ExcelJS from 'exceljs'; // Import ExcelJS library for Excel manipulation
-import * as resultsService from './results.service.js'; // Import service to fetch survey data
+import ExcelJS from 'exceljs';
+import * as resultsService from './results.service.js';
 
 // Main function to export survey responses to Excel
 export const exportResponsesToExcel = async (req, res) => {
@@ -12,35 +12,37 @@ export const exportResponsesToExcel = async (req, res) => {
 
     // Clean response data by removing unnecessary quotes
     const cleanedResponses = responses.map(r => ({
-      ...r,
-      answer: r.answer.replace(/^"(.*)"$/, '$1').replace(/\\"/g, '"')
+      ...r.get({ plain: true }), // Convert Sequelize instance to plain object
+      answer: typeof r.answer === 'string' 
+        ? r.answer.replace(/^"(.*)"$/, '$1').replace(/\\"/g, '"')
+        : r.answer
     }));
 
     // Initialize new Excel workbook
     const workbook = new ExcelJS.Workbook();
     
-    // Create worksheets for different data views
+    // Create worksheets
     const rawSheet = workbook.addWorksheet('Responses');
     const statsSheet = workbook.addWorksheet('Statistics');
     const chartsSheet = workbook.addWorksheet('Charts');
 
-    // Define consistent header styling
+    // Define header styling
     const headerStyle = {
       fill: { 
         type: 'pattern', 
         pattern: 'solid', 
-        fgColor: { argb: 'FF6C63FF' } // Brand color
+        fgColor: { argb: 'FF6C63FF' }
       },
       font: { 
         bold: true, 
-        color: { argb: 'FFFFFFFF' } // White text
+        color: { argb: 'FFFFFFFF' }
       },
       alignment: { 
         horizontal: 'center' 
       }
     };
 
-    // Worksheet 1: Raw response data
+    // Worksheet 1: Raw responses
     rawSheet.columns = [
       { header: 'Question', key: 'question', width: 40 },
       { header: 'Answer', key: 'answer', width: 30 }
@@ -48,7 +50,7 @@ export const exportResponsesToExcel = async (req, res) => {
     rawSheet.addRows(cleanedResponses);
     applyHeaderStyle(rawSheet, headerStyle);
 
-    // Worksheet 2: Response statistics
+    // Worksheet 2: Statistics
     const statsData = calculateStats(cleanedResponses);
     statsSheet.columns = [
       { header: 'Metric', key: 'metric', width: 40 },
@@ -57,11 +59,11 @@ export const exportResponsesToExcel = async (req, res) => {
     statsSheet.addRows(statsData);
     applyHeaderStyle(statsSheet, headerStyle);
 
-    // Worksheet 3: Data visualization
+    // Worksheet 3: Charts data
     prepareChartsData(chartsSheet, cleanedResponses);
     applyHeaderStyle(chartsSheet, headerStyle);
 
-    // Generate Excel file buffer
+    // Generate and send Excel file
     const buffer = await workbook.xlsx.writeBuffer();
     
     // Set response headers for file download
@@ -80,25 +82,28 @@ export const exportResponsesToExcel = async (req, res) => {
   }
 };
 
-// Helper function to apply consistent header styling
+// Helper function to apply header styles
 function applyHeaderStyle(sheet, style) {
-  sheet.getRow(1).eachCell(cell => {
-    cell.fill = style.fill;
-    cell.font = style.font;
-    cell.alignment = style.alignment;
-  });
+  if (sheet.rowCount > 0) {
+    sheet.getRow(1).eachCell(cell => {
+      Object.assign(cell, style);
+    });
+  }
 }
 
-// Calculate response statistics (totals, frequencies)
+// Calculate response statistics
 function calculateStats(responses) {
   const total = responses.length;
   
   // Group responses by question and count answers
   const byQuestion = responses.reduce((acc, { question, answer }) => {
+    if (!question) return acc;
+    
     if (!acc[question]) {
       acc[question] = { counts: {}, total: 0 };
     }
-    acc[question].counts[answer] = (acc[question].counts[answer] || 0) + 1;
+    const answerStr = String(answer);
+    acc[question].counts[answerStr] = (acc[question].counts[answerStr] || 0) + 1;
     acc[question].total++;
     return acc;
   }, {});
@@ -122,28 +127,44 @@ function calculateStats(responses) {
   return stats;
 }
 
-// Prepare data for charts visualization
+// Prepare data for charts
 function prepareChartsData(sheet, responses) {
-  // Filter and count responses for chart data
-  const chartData = responses
-    .filter(r => r.question.includes('frequency')) // Filter for chartable questions
-    .reduce((acc, { answer }) => {
-      acc[answer] = (acc[answer] || 0) + 1;
+  // Get all unique questions for charting
+  const questions = [...new Set(responses.map(r => r.question))];
+  
+  questions.forEach((question, index) => {
+    const row = index * 5 + 1; // Space charts vertically
+    
+    // Filter responses for this question
+    const questionResponses = responses.filter(r => r.question === question);
+    
+    // Count answer frequencies
+    const answerCounts = questionResponses.reduce((acc, { answer }) => {
+      const answerStr = String(answer);
+      acc[answerStr] = (acc[answerStr] || 0) + 1;
       return acc;
     }, {});
 
-  // Add data table for chart reference
-  sheet.addTable({
-    name: 'ChartData',
-    ref: 'A1',
-    columns: [
-      { name: 'Answer' }, 
-      { name: 'Count' }
-    ],
-    rows: Object.entries(chartData)
-      .map(([answer, count]) => [answer, count])
+    // Add question title
+    sheet.getCell(`A${row}`).value = question;
+    sheet.getCell(`A${row}`).font = { bold: true };
+    
+    // Add data table
+    const dataRows = Object.entries(answerCounts).map(([answer, count], i) => {
+      sheet.getCell(`A${row + i + 1}`).value = answer;
+      sheet.getCell(`B${row + i + 1}`).value = count;
+      return [answer, count];
+    });
+
+    // Add table structure
+    sheet.addTable({
+      name: `ChartData_${index}`,
+      ref: `A${row}`,
+      columns: [
+        { name: 'Answer' },
+        { name: 'Count' }
+      ],
+      rows: dataRows
+    });
   });
-  
-  // Note: Actual chart rendering would require additional setup
-  // This prepares the data structure for chart creation
 }
