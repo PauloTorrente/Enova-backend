@@ -1,31 +1,21 @@
 import ExcelJS from 'exceljs';
 import * as resultsService from './results.service.js';
 
-// Función principal para exportar respuestas de encuestas a un archivo Excel
+// Main function to export survey responses to an Excel file
 export const exportResponsesToExcel = async (req, res) => {
   try {
-    // Obtener el ID de la encuesta desde los parámetros de la solicitud
     const { surveyId } = req.params;
-
-    // Obtener respuestas desde la base de datos
     const responses = await resultsService.getResponsesBySurvey(surveyId);
-
-    // Procesar los datos para limpiarlos y estructurarlos correctamente
     const processedData = processResponses(responses);
-    
-    // Crear el archivo Excel con los datos procesados
+
     const workbook = createExcelWorkbook(processedData);
-
-    // Enviar el archivo Excel como respuesta
     sendExcelResponse(res, workbook, surveyId);
-
   } catch (error) {
-    // Manejar errores en la exportación
     handleExportError(res, error);
   }
 };
 
-// Función para procesar las respuestas y limpiar los datos innecesarios
+// Process responses and clean data
 function processResponses(responses) {
   return responses.map(r => ({
     ...r.get({ plain: true }),
@@ -35,19 +25,18 @@ function processResponses(responses) {
   }));
 }
 
-// Función para limpiar las respuestas eliminando comillas innecesarias
+// Clean unnecessary quotes from answers
 function cleanAnswer(answer) {
   if (typeof answer !== 'string') return answer;
   return answer.replace(/^"(.*)"$/, '$1').replace(/\\"/g, '"');
 }
 
-// Función para crear un archivo Excel con los datos estructurados
+// Create an Excel workbook with structured data
 function createExcelWorkbook(data) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Enova Analytics';
   workbook.created = new Date();
 
-  // Agregar diferentes hojas con información
   addRawDataSheet(workbook, data);
   addStatisticsSheet(workbook, data);
   addVisualizationSheet(workbook, data);
@@ -55,74 +44,111 @@ function createExcelWorkbook(data) {
   return workbook;
 }
 
-// Función para agregar la hoja de datos sin procesar
+// Add raw data sheet
 function addRawDataSheet(workbook, data) {
-  const sheet = workbook.addWorksheet('Datos Brutos');
-  
-  // Definir columnas con encabezados
+  const sheet = workbook.addWorksheet('Raw Data');
+
   sheet.columns = [
-    { header: 'Pregunta', key: 'question', width: 35 },
-    { header: 'Respuesta', key: 'answer', width: 30 }
+    { header: 'Question', key: 'question', width: 35 },
+    { header: 'Answer', key: 'answer', width: 30 }
   ];
-  
-  // Agregar las respuestas a la hoja
+
   sheet.addRows(data);
   applySheetStyle(sheet, '6C63FF');
 }
 
-// Función para agregar la hoja de estadísticas
+// Add statistics sheet
 function addStatisticsSheet(workbook, data) {
-  const sheet = workbook.addWorksheet('Estadísticas');
+  const sheet = workbook.addWorksheet('Statistics');
   const stats = calculateStatistics(data);
 
-  // Definir las columnas
   sheet.columns = [
-    { header: 'Métrica', key: 'metric', width: 40 },
-    { header: 'Valor', key: 'value', width: 30 }
+    { header: 'Metric', key: 'metric', width: 40 },
+    { header: 'Value', key: 'value', width: 30 }
   ];
 
-  // Agregar estadísticas calculadas
   sheet.addRows(stats);
   applySheetStyle(sheet, '4A90E2');
 }
 
-// Función para agregar la hoja de visualización de datos
+// Add visualization sheet with charts
 function addVisualizationSheet(workbook, data) {
-  const sheet = workbook.addWorksheet('Visualizaciones');
+  const sheet = workbook.addWorksheet('Visualizations');
   const questions = [...new Set(data.map(r => r.question))];
 
   let currentRow = 1;
-  
+
   questions.forEach(question => {
-    // Agregar título de la pregunta
     sheet.getCell(`A${currentRow}`).value = question;
     sheet.getCell(`A${currentRow}`).font = { bold: true, size: 14 };
     currentRow++;
 
-    // Filtrar respuestas para la pregunta actual
     const questionData = data.filter(r => r.question === question);
     const answerCounts = calculateAnswerCounts(questionData);
 
-    // Agregar encabezados para la tabla de respuestas
-    sheet.getCell(`A${currentRow}`).value = 'Respuesta';
-    sheet.getCell(`B${currentRow}`).value = 'Cantidad';
+    sheet.getCell(`A${currentRow}`).value = 'Answer';
+    sheet.getCell(`B${currentRow}`).value = 'Count';
     currentRow++;
 
-    // Agregar respuestas y sus conteos
     Object.entries(answerCounts).forEach(([answer, count]) => {
       sheet.getCell(`A${currentRow}`).value = answer;
       sheet.getCell(`B${currentRow}`).value = count;
       currentRow++;
     });
 
-    // Espaciado entre preguntas
+    addChart(sheet, answerCounts, currentRow - Object.keys(answerCounts).length, question);
+
     currentRow += 2;
   });
 
   applySheetStyle(sheet, '00C897');
 }
 
-// Función para calcular estadísticas generales de las respuestas
+// Add charts (pie, bar, column)
+function addChart(sheet, data, startRow, title) {
+  const chartSheet = sheet.workbook.addWorksheet(`${title} Chart`);
+
+  chartSheet.columns = [
+    { header: 'Answer', key: 'answer', width: 30 },
+    { header: 'Count', key: 'count', width: 20 }
+  ];
+
+  const rows = Object.entries(data).map(([answer, count]) => [answer, count]);
+  chartSheet.addRows(rows);
+
+  const pieChart = chartSheet.addChart({
+    type: 'pie',
+    title: `Distribution for ${title}`,
+    data: {
+      labels: rows.map(row => row[0]),
+      values: rows.map(row => row[1])
+    }
+  });
+
+  const barChart = chartSheet.addChart({
+    type: 'bar',
+    title: `Bar Chart for ${title}`,
+    data: {
+      labels: rows.map(row => row[0]),
+      values: rows.map(row => row[1])
+    }
+  });
+
+  const columnChart = chartSheet.addChart({
+    type: 'column',
+    title: `Column Chart for ${title}`,
+    data: {
+      labels: rows.map(row => row[0]),
+      values: rows.map(row => row[1])
+    }
+  });
+
+  chartSheet.addImage(pieChart, { tl: { col: 3, row: startRow } });
+  chartSheet.addImage(barChart, { tl: { col: 10, row: startRow } });
+  chartSheet.addImage(columnChart, { tl: { col: 17, row: startRow } });
+}
+
+// Calculate statistics for the responses
 function calculateStatistics(data) {
   const total = data.length;
   const byQuestion = {};
@@ -131,15 +157,13 @@ function calculateStatistics(data) {
     if (!byQuestion[question]) {
       byQuestion[question] = { counts: {}, total: 0 };
     }
-    
+
     const answerKey = String(answer);
     byQuestion[question].counts[answerKey] = (byQuestion[question].counts[answerKey] || 0) + 1;
     byQuestion[question].total++;
   });
 
-  const stats = [
-    { metric: 'Total de respuestas', value: total }
-  ];
+  const stats = [{ metric: 'Total Responses', value: total }];
 
   for (const [question, data] of Object.entries(byQuestion)) {
     const sortedAnswers = Object.entries(data.counts).sort((a, b) => b[1] - a[1]);
@@ -147,11 +171,10 @@ function calculateStatistics(data) {
     const percentage = Math.round((mostCommon[1] / data.total) * 100);
 
     stats.push({
-      metric: `Respuesta más común: "${question}"`,
+      metric: `Most common answer: "${question}"`,
       value: `${mostCommon[0]} (${percentage}%)`
     });
 
-    // Agregar distribución completa para preguntas con pocas opciones
     if (sortedAnswers.length <= 5) {
       sortedAnswers.forEach(([answer, count], index) => {
         stats.push({
@@ -165,7 +188,7 @@ function calculateStatistics(data) {
   return stats;
 }
 
-// Función para contar respuestas por tipo
+// Count responses by type
 function calculateAnswerCounts(data) {
   return data.reduce((acc, { answer }) => {
     const answerKey = String(answer);
@@ -174,9 +197,8 @@ function calculateAnswerCounts(data) {
   }, {});
 }
 
-// Función para aplicar estilo a las hojas de Excel
+// Apply style to Excel sheets
 function applySheetStyle(sheet, color) {
-  // Estilo para la fila de encabezado
   sheet.getRow(1).eachCell(cell => {
     cell.fill = {
       type: 'pattern',
@@ -196,13 +218,12 @@ function applySheetStyle(sheet, color) {
     };
   });
 
-  // Ajustar alineación para las celdas de datos
   for (let i = 2; i <= sheet.rowCount; i++) {
     sheet.getRow(i).alignment = { vertical: 'top', wrapText: true };
   }
 }
 
-// Función para enviar el archivo Excel como respuesta
+// Send Excel file as response
 function sendExcelResponse(res, workbook, surveyId) {
   res.setHeader(
     'Content-Type',
@@ -210,19 +231,18 @@ function sendExcelResponse(res, workbook, surveyId) {
   );
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename=Reporte_Encuesta_${surveyId}.xlsx`
+    `attachment; filename=Survey_Report_${surveyId}.xlsx`
   );
 
-  workbook.xlsx.write(res)
-    .then(() => res.end());
+  workbook.xlsx.write(res).then(() => res.end());
 }
 
-// Función para manejar errores en la exportación
+// Handle export errors
 function handleExportError(res, error) {
-  console.error('Error en la exportación:', error);
+  console.error('Export error:', error);
   res.status(500).json({
     success: false,
-    message: 'Fallo al generar el informe',
+    message: 'Failed to generate report',
     error: error.message
   });
 }
