@@ -1,60 +1,50 @@
 import * as resultsService from './results.service.js'; // Importing the results service to interact with the results data
 import { validationResult } from 'express-validator'; // Importing express-validator to validate incoming requests
-import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; // Importing the authentication middleware for admins
 import Survey from '../surveys/surveys.model.js'; // Importing the Survey model to fetch survey details
-import xlsx from 'xlsx'; // Importing xlsx library for Excel file generation
+import { exportResponsesToExcel } from './exportResponsesToExcel.js'; // Import the export function for Excel
 
 // Controller function to save a response for a survey
 export const saveResponse = async (req, res) => {
   try {
     console.log('Starting saveResponse...'); // Debugging log
 
-    // Validate any request errors using express-validator
-    const errors = validationResult(req);
+    const errors = validationResult(req); // Check if the request has validation errors
     if (!errors.isEmpty()) {
       console.log('Validation failed', errors.array()); // Debugging log
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array() }); // Return validation error
     }
 
-    // Extracting data from the request body
-    const { surveyId, userId, questionId, answer } = req.body;
+    const { surveyId, userId, questionId, answer } = req.body; // Get data from the request body
     console.log('Request Body:', { surveyId, userId, questionId, answer }); // Debugging log
 
-    // Fetch the survey to get the question text and title
-    const survey = await Survey.findByPk(surveyId);
+    const survey = await Survey.findByPk(surveyId); // Get the survey using its ID
     if (!survey) {
       console.log('Survey not found'); // Debugging log
       return res.status(404).json({ message: 'Survey not found' });
     }
 
-    console.log('Survey found:', survey); // Debugging log
-
-    // Find the specific question in the survey
-    const questionObj = survey.questions.find(q => q.questionId === questionId);
+    const questionObj = survey.questions.find(q => q.questionId === questionId); // Find the question in the survey
     if (!questionObj) {
       console.log('Question not found in the survey'); // Debugging log
       return res.status(404).json({ message: 'Question not found in the survey' });
     }
 
-    console.log('Question found:', questionObj); // Debugging log
+    const questionText = questionObj.question; // Get question text
+    const surveyTitle = survey.title; // Get the survey title
 
-    // Extract the question text and survey title
-    const questionText = questionObj.question;
-    const surveyTitle = survey.title; // Extracting the survey title
-    console.log('Extracted Question Text:', questionText); // Debugging log
-    console.log('Extracted Survey Title:', surveyTitle); // Debugging log
+    const result = await resultsService.saveResponse(
+      surveyId,
+      userId,
+      surveyTitle,
+      questionText,
+      answer
+    ); // Save the response
 
-    // Call the resultsService to save the response
-    const result = await resultsService.saveResponse(surveyId, userId, surveyTitle, questionText, answer);
-    console.log('Saved Response:', result); // Debugging log
-
-    // Return a success response with the saved result
     return res.status(201).json({
       message: 'Response saved successfully!',
       result: result,
     });
   } catch (error) {
-    // If there's an error, catch it and return a 500 error with the error message
     console.error('Error saving response:', error); // Debugging log
     return res.status(500).json({
       message: 'Error saving response',
@@ -63,39 +53,25 @@ export const saveResponse = async (req, res) => {
   }
 };
 
-// Controller function to get all responses for a specific survey (Admin only)
+// Controller to get all responses for a survey
 export const getResponsesBySurvey = async (req, res) => {
   try {
-    console.log('Starting getResponsesBySurvey...'); // Debugging log
-
-    const { surveyId } = req.params; // Extract surveyId from URL parameters
-    console.log('Extracted Survey ID:', surveyId); // Debugging log
-
+    const { surveyId } = req.params;
     if (!surveyId) {
-      console.log('Survey ID is required'); // Debugging log
       return res.status(400).json({ message: 'Survey ID is required' });
     }
 
-    // Call the resultsService to get responses for the survey
     const responses = await resultsService.getResponsesBySurvey(surveyId);
-    console.log('Fetched Responses:', responses); // Debugging log
-
-    // If no responses are found, return a 404 error
     if (responses.length === 0) {
-      console.log('No responses found for this survey'); // Debugging log
       return res.status(404).json({ message: 'No responses found for this survey.' });
     }
 
-    // Return the responses in the response body
     return res.status(200).json({
       message: 'Responses fetched successfully!',
       responses: responses,
     });
   } catch (error) {
-    // Log the error for debugging purposes
     console.error('Error in getResponsesBySurvey:', error); // Debugging log
-
-    // Return an error message if something goes wrong
     return res.status(500).json({
       message: 'Error fetching responses for the survey',
       error: error.message,
@@ -103,25 +79,16 @@ export const getResponsesBySurvey = async (req, res) => {
   }
 };
 
-// Controller function to get all responses for a specific user (Admin only)
+// Controller to get all responses by user
 export const getUserResponses = async (req, res) => {
   try {
-    console.log('Starting getUserResponses...'); // Debugging log
-
-    const { userId } = req.params; // Extract userId from request parameters
-    console.log('Request Params:', { userId }); // Debugging log
-
-    // Call the resultsService to get responses for the user
+    const { userId } = req.params;
     const userResponses = await resultsService.getUserResponses(userId);
-    console.log('User Responses:', userResponses); // Debugging log
 
-    // If no responses are found, return a 404 error
     if (userResponses.length === 0) {
-      console.log('No responses found for this user'); // Debugging log
       return res.status(404).json({ message: 'No responses found for this user.' });
     }
 
-    // Return the user responses in the response body
     return res.status(200).json({
       message: 'User responses fetched successfully!',
       userResponses: userResponses,
@@ -135,25 +102,16 @@ export const getUserResponses = async (req, res) => {
   }
 };
 
-// Controller function to get responses for a specific question in a survey (Admin only)
+// Controller to get responses for a specific question
 export const getResponsesByQuestion = async (req, res) => {
   try {
-    console.log('Starting getResponsesByQuestion...'); // Debugging log
-
-    const { surveyId, question } = req.params; // Extract surveyId and question from request parameters
-    console.log('Request Params:', { surveyId, question }); // Debugging log
-
-    // Call the resultsService to get responses for a specific question in the survey
+    const { surveyId, question } = req.params;
     const responses = await resultsService.getResponsesByQuestion(surveyId, question);
-    console.log('Fetched Responses for Question:', responses); // Debugging log
 
-    // If no responses are found, return a 404 error
     if (responses.length === 0) {
-      console.log('No responses found for this question'); // Debugging log
       return res.status(404).json({ message: 'No responses found for this question.' });
     }
 
-    // Return the responses in the response body
     return res.status(200).json({
       message: 'Responses for the question fetched successfully!',
       responses: responses,
@@ -167,48 +125,16 @@ export const getResponsesByQuestion = async (req, res) => {
   }
 };
 
-// Controller function to export responses to Excel
-export const exportResponsesToExcel = async (req, res) => {
-  try {
-    const { surveyId } = req.params; // Extract surveyId from URL parameters
+// Export the function directly with the same name
+export { exportResponsesToExcel };
 
-    // Fetch all responses for the survey
-    const responses = await resultsService.getResponsesBySurvey(surveyId);
-
-    // Map responses to a format suitable for Excel
-    const data = responses.map(response => ({
-      SurveyTitle: response.surveyTitle,
-      Question: response.question,
-      Answer: JSON.stringify(response.answer), // Convert JSON answer to string
-    }));
-
-    // Create a new Excel workbook and worksheet
-    const worksheet = xlsx.utils.json_to_sheet(data);
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Responses');
-
-    // Generate the Excel file as a buffer
-    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-    // Set response headers for file download
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=responses_${surveyId}.xlsx`);
-
-    // Send the Excel file as the response
-    res.send(buffer);
-  } catch (error) {
-    console.error('Error exporting responses:', error); // Debugging log
-    res.status(500).json({ message: 'Error exporting responses', error: error.message });
-  }
-};
-
-// Exporting all controller functions for use in routes
+// Export all controller functions
 const resultsController = {
   saveResponse,
   getResponsesBySurvey,
   getUserResponses,
   getResponsesByQuestion,
-  exportResponsesToExcel, 
+  exportResponsesToExcel // Consistent name with the route
 };
 
 export default resultsController;

@@ -119,12 +119,22 @@ export const getResponsesByQuestion = async (surveyId, question) => {
   }
 };
 
+// Function to export responses to Excel
+export const exportResponsesToExcel = async (surveyId) => {
+  const responses = await getResponsesBySurvey(surveyId);
+  return responses.map(r => ({
+    ...r.get({ plain: true }),
+    answer: r.answer.replace(/^"(.*)"$/, '$1') // Limpa aspas
+  }));
+};
+
 // Exporting the results service for use in other parts of the application
 const resultsService = {
   saveResponse,
   getResponsesBySurvey,
   getUserResponses,
   getResponsesByQuestion,
+  exportResponsesToExcel,
 };
 
 export default resultsService;
