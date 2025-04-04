@@ -1,103 +1,149 @@
-import ExcelJS from 'exceljs'; // Importing ExcelJS for advanced Excel file features
+import ExcelJS from 'exceljs'; // Import ExcelJS library for Excel manipulation
+import * as resultsService from './results.service.js'; // Import service to fetch survey data
 
-// Function to export responses to Excel with statistics and charts
+// Main function to export survey responses to Excel
 export const exportResponsesToExcel = async (req, res) => {
   try {
-    const { surveyId } = req.params; // Get survey ID from the URL
-    const responses = await resultsService.getResponsesBySurvey(surveyId); // Get responses from DB
+    // Extract survey ID from request parameters
+    const { surveyId } = req.params;
+    
+    // Fetch responses from database using service
+    const responses = await resultsService.getResponsesBySurvey(surveyId);
 
-    // Clean the answers to remove extra quotes and escape sequences
+    // Clean response data by removing unnecessary quotes
     const cleanedResponses = responses.map(r => ({
       ...r,
       answer: r.answer.replace(/^"(.*)"$/, '$1').replace(/\\"/g, '"')
     }));
 
-    // Create a new Excel workbook with multiple tabs
+    // Initialize new Excel workbook
     const workbook = new ExcelJS.Workbook();
-    const rawSheet = workbook.addWorksheet('Respostas');
-    const statsSheet = workbook.addWorksheet('Estatísticas');
-    const chartsSheet = workbook.addWorksheet('Gráficos');
+    
+    // Create worksheets for different data views
+    const rawSheet = workbook.addWorksheet('Responses');
+    const statsSheet = workbook.addWorksheet('Statistics');
+    const chartsSheet = workbook.addWorksheet('Charts');
 
-    // Define the style for headers
+    // Define consistent header styling
     const headerStyle = {
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6C63FF' } },
-      font: { bold: true, color: { argb: 'FFFFFFFF' } },
-      alignment: { horizontal: 'center' }
+      fill: { 
+        type: 'pattern', 
+        pattern: 'solid', 
+        fgColor: { argb: 'FF6C63FF' } // Brand color
+      },
+      font: { 
+        bold: true, 
+        color: { argb: 'FFFFFFFF' } // White text
+      },
+      alignment: { 
+        horizontal: 'center' 
+      }
     };
 
-    // Sheet 1: Raw cleaned responses
+    // Worksheet 1: Raw response data
     rawSheet.columns = [
-      { header: 'Pergunta', key: 'question', width: 40 },
-      { header: 'Resposta', key: 'answer', width: 30 }
+      { header: 'Question', key: 'question', width: 40 },
+      { header: 'Answer', key: 'answer', width: 30 }
     ];
     rawSheet.addRows(cleanedResponses);
-    rawSheet.getRow(1).eachCell(cell => Object.assign(cell, headerStyle)); // Style header row
+    applyHeaderStyle(rawSheet, headerStyle);
 
-    // Sheet 2: Statistics (like total and most frequent answers)
+    // Worksheet 2: Response statistics
     const statsData = calculateStats(cleanedResponses);
     statsSheet.columns = [
-      { header: 'Métrica', key: 'metric', width: 40 },
-      { header: 'Valor', key: 'value', width: 30 }
+      { header: 'Metric', key: 'metric', width: 40 },
+      { header: 'Value', key: 'value', width: 30 }
     ];
     statsSheet.addRows(statsData);
-    statsSheet.getRow(1).eachCell(cell => Object.assign(cell, headerStyle)); // Style header row
+    applyHeaderStyle(statsSheet, headerStyle);
 
-    // Sheet 3: Add charts (bar chart based on grouped responses)
-    addChartsToSheet(chartsSheet, cleanedResponses);
+    // Worksheet 3: Data visualization
+    prepareChartsData(chartsSheet, cleanedResponses);
+    applyHeaderStyle(chartsSheet, headerStyle);
 
-    // Generate the Excel file buffer
+    // Generate Excel file buffer
     const buffer = await workbook.xlsx.writeBuffer();
-
-    // Set headers and send the Excel file
+    
+    // Set response headers for file download
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=survey_${surveyId}_dashboard.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=survey_${surveyId}_report.xlsx`);
+    
+    // Send the Excel file
     res.send(buffer);
+
   } catch (error) {
-    console.error('Error exporting responses:', error); // Debugging log
-    res.status(500).json({ message: 'Error exporting responses', error: error.message });
+    console.error('Export failed:', error);
+    res.status(500).json({ 
+      message: 'Failed to generate report',
+      error: error.message 
+    });
   }
 };
 
-// Helper function to calculate statistics
+// Helper function to apply consistent header styling
+function applyHeaderStyle(sheet, style) {
+  sheet.getRow(1).eachCell(cell => {
+    cell.fill = style.fill;
+    cell.font = style.font;
+    cell.alignment = style.alignment;
+  });
+}
+
+// Calculate response statistics (totals, frequencies)
 function calculateStats(responses) {
   const total = responses.length;
+  
+  // Group responses by question and count answers
   const byQuestion = responses.reduce((acc, { question, answer }) => {
-    if (!acc[question]) acc[question] = { counts: {}, total: 0 };
+    if (!acc[question]) {
+      acc[question] = { counts: {}, total: 0 };
+    }
     acc[question].counts[answer] = (acc[question].counts[answer] || 0) + 1;
     acc[question].total++;
     return acc;
   }, {});
 
-  const stats = [];
-  stats.push({ metric: 'Total de Respostas', value: total });
+  // Prepare statistics data for Excel
+  const stats = [
+    { metric: 'Total Responses', value: total }
+  ];
 
+  // Add most common answers for each question
   for (const [question, data] of Object.entries(byQuestion)) {
-    const mostCommon = Object.entries(data.counts).sort((a, b) => b[1] - a[1])[0];
+    const mostCommon = Object.entries(data.counts)
+      .sort((a, b) => b[1] - a[1])[0];
+    
     stats.push({
-      metric: `Mais comum: "${question}"`,
+      metric: `Most common: "${question}"`,
       value: `${mostCommon[0]} (${Math.round((mostCommon[1] / data.total) * 100)}%)`
     });
   }
+
   return stats;
 }
 
-// Helper function to add a basic bar chart to the sheet
-function addChartsToSheet(sheet, responses) {
+// Prepare data for charts visualization
+function prepareChartsData(sheet, responses) {
+  // Filter and count responses for chart data
   const chartData = responses
-    .filter(r => r.question.includes('frequência')) // Example: only for specific question
+    .filter(r => r.question.includes('frequency')) // Filter for chartable questions
     .reduce((acc, { answer }) => {
       acc[answer] = (acc[answer] || 0) + 1;
       return acc;
     }, {});
 
-  // Add data table to worksheet
+  // Add data table for chart reference
   sheet.addTable({
     name: 'ChartData',
     ref: 'A1',
-    columns: [{ name: 'Resposta' }, { name: 'Contagem' }],
-    rows: Object.entries(chartData).map(([answer, count]) => [answer, count])
+    columns: [
+      { name: 'Answer' }, 
+      { name: 'Count' }
+    ],
+    rows: Object.entries(chartData)
+      .map(([answer, count]) => [answer, count])
   });
-
-  // Charts with ExcelJS are not rendered visually yet; placeholder if needed
-  // Could be implemented later using OfficeJS or rendering in frontend
+  
+  // Note: Actual chart rendering would require additional setup
+  // This prepares the data structure for chart creation
 }
