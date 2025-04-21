@@ -1,42 +1,68 @@
 import { DataTypes } from 'sequelize';
-import { sequelize } from '../../config/database.js'; // Import Sequelize instance
+import { sequelize } from '../../config/database.js';
 
-// Define the Survey model using Sequelize ORM
+// Define the Survey model using Sequelize
 const Survey = sequelize.define('Survey', {
   id: {
     type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true, // Auto-incrementing ID for each survey
+    primaryKey: true,       // This is the primary key
+    autoIncrement: true,    // Automatically increments for each new survey
   },
   title: {
     type: DataTypes.STRING,
-    allowNull: false, // Title is required for each survey
+    allowNull: false,       // Title is required
   },
   description: {
     type: DataTypes.STRING,
-    allowNull: true, // Description is optional
+    allowNull: true,        // Description is optional
   },
   questions: {
-    type: DataTypes.JSON, // Stores survey questions as JSON (array of question objects)
-    allowNull: false, // Questions are required
+    type: DataTypes.JSON,   // Store questions as JSON array
+    allowNull: false,       // Questions are required
+    validate: {
+      isValidQuestions(value) {
+        // First check if questions is an array
+        if (!Array.isArray(value)) {
+          throw new Error('Questions must be an array');
+        }
+        
+        // Validate each question object in the array
+        for (const question of value) {
+          // Required fields for every question
+          if (!question.type || !question.question || !question.questionId) {
+            throw new Error('Each question must have type, question, and questionId');
+          }
+          
+          // If image exists, validate it's a string (URL)
+          if (question.imagem && typeof question.imagem !== 'string') {
+            throw new Error('Image must be a string (URL)');
+          }
+          
+          // If video exists, validate it's a string (URL)
+          if (question.video && typeof question.video !== 'string') {
+            throw new Error('Video must be a string (URL)');
+          }
+        }
+      }
+    }
   },
   expirationTime: {
     type: DataTypes.DATE,
-    allowNull: false, // Expiration time is required
-    field: 'expirationTime', // Make sure to match the exact column name in the database
+    allowNull: false,       // Expiration time is required
+    field: 'expirationTime', // Maps to this column name in database
   },
   status: {
-    type: DataTypes.ENUM('active', 'expired'), // Status can be 'active' or 'expired'
-    defaultValue: 'active', // Default status is 'active'
+    type: DataTypes.ENUM('active', 'expired'), // Only these values allowed
+    defaultValue: 'active', // Defaults to 'active' when not specified
   },
   accessToken: {
     type: DataTypes.STRING,
-    allowNull: false, // Token is required for survey access
-    unique: true, // Ensure each survey has a unique token
+    allowNull: false,       // Token is required
+    unique: true,           // Each token must be unique
   },
 }, {
-  tableName: 'surveys', // Explicitly set table name
-  timestamps: false, // Disable automatic creation of createdAt and updatedAt columns
+  tableName: 'surveys',     // Explicit table name
+  timestamps: false,        // Don't auto-create createdAt/updatedAt
 });
 
 // Define the association between Survey and Result

@@ -13,7 +13,10 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware configuration
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: 'opinacash.com', // permite só seu frontend
+  credentials: true
+}));
 app.use(helmet());
 
 // Router configuration
