@@ -14,6 +14,15 @@ oauth2Client.setCredentials({
   refresh_token: process.env.SMTP_REFRESH_TOKEN,
 });
 
+setInterval(async () => {
+  try {
+    const { credentials } = await oauth2Client.refreshAccessToken();
+    console.log('Token renovado:', credentials.access_token);
+  } catch (error) {
+    console.error('Erro ao renovar token:', error);
+  }
+}, 45 * 60 * 1000);
+
 async function getAccessToken() {
   try {
     const { token } = await oauth2Client.getAccessToken();
@@ -32,7 +41,7 @@ const transporter = nodemailer.createTransport({
     clientId: process.env.SMTP_CLIENT_ID,
     clientSecret: process.env.SMTP_CLIENT_SECRET,
     refreshToken: process.env.SMTP_REFRESH_TOKEN,
-    accessToken: getAccessToken,
+    accessToken: () => getAccessToken(), 
   },
 });
 
