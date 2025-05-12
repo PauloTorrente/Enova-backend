@@ -7,8 +7,11 @@ export const getById = async (id) => {
 
 // Update user by ID with new data
 export const update = async (id, updatedData) => {
-  await User.update(updatedData, { where: { id } });
-  return await User.findByPk(id);
+  const user = await User.findByPk(id);
+  if (!user) return null;
+
+  await user.update(updatedData);
+  return user;
 };
 
 // Create a new user

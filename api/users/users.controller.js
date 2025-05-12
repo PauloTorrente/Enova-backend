@@ -1,13 +1,13 @@
 import * as usersService from './users.service.js';
 import User from '../users/users.model.js';
-import { authenticateAdmin } from '../../middlewares/auth.middleware.js'; 
+import { authenticateAdmin } from '../../middlewares/auth.middleware.js';
 
 // Get user details by ID
 export const getUserById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const user = await usersService.getUserById(id); // Using service to fetch user
+    const user = await usersService.getUserById(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -23,12 +23,12 @@ export const confirmUser = async (req, res) => {
   const { token } = req.params;
 
   try {
-    const user = await User.findOne({ where: { confirmationToken: token } }); // Sequelize query to find user by token
+    const user = await User.findOne({ where: { confirmationToken: token } });
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
-    const expirationTime = 60 * 60 * 1000; // Token expiration time (1 hour)
+    const expirationTime = 60 * 60 * 1000;
     const isExpired = Date.now() - new Date(user.createdAt).getTime() > expirationTime;
 
     if (isExpired) {
@@ -36,8 +36,8 @@ export const confirmUser = async (req, res) => {
     }
 
     user.isConfirmed = true;
-    user.confirmationToken = null; // Clear confirmation token
-    await user.save(); // Save the updated user status
+    user.confirmationToken = null;
+    await user.save();
 
     return res.status(200).json({ message: 'User confirmed successfully' });
   } catch (error) {
@@ -49,13 +49,39 @@ export const confirmUser = async (req, res) => {
 // Update user details
 export const updateUser = async (req, res) => {
   const { id } = req.params;
-  const updatedData = req.body;
+  const requester = req.user;
+
+  // Apenas o próprio usuário ou um admin pode editar
+  if (requester.role !== 'admin' && requester.userId !== Number(id)) {
+    return res.status(403).json({ message: 'Forbidden: você só pode alterar seu próprio perfil.' });
+  }
+
+  // Lista dos campos que o usuário pode modificar
+  const allowed = [
+    'firstName',
+    'lastName',
+    'gender',
+    'age',
+    'phoneNumber',
+    'city',
+    'residentialArea',
+    'purchaseResponsibility',
+    'childrenCount',
+    'childrenAges',
+    'educationLevel'
+  ];
+
+  // Monta o objeto com os dados atualizados
+  const updatedData = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) {
+      updatedData[key] = req.body[key];
+    }
+  }
 
   try {
-    const updatedUser = await usersService.updateUser(id, updatedData); // Call service to update user
-    if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const updatedUser = await usersService.updateUser(id, updatedData);
+    if (!updatedUser) return res.status(404).json({ message: 'User not found' });
     res.json(updatedUser);
   } catch (error) {
     console.error('Error updating user:', error);
@@ -68,7 +94,7 @@ export const getAllUsers = async (req, res) => {
   const filters = req.query;
 
   try {
-    const users = await usersService.getAllUsers(filters); // Fetch users with filters
+    const users = await usersService.getAllUsers(filters);
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -81,7 +107,7 @@ export const deleteUser = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deletedUser = await usersService.deleteUser(id); // Soft delete the user
+    const deletedUser = await usersService.deleteUser(id);
     if (!deletedUser) {
       return res.status(404).json({ message: 'User not found' });
     }
