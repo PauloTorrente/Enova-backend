@@ -35,5 +35,6 @@ router.patch('/:id', authenticateUser, updateUser);
 router.delete('/:id', authenticateAdmin, deleteUser);  
 router.get('/confirm/:token', confirmUser);
 router.get('/:id/wallet', getWalletBalance); 
+router.patch('/me', authenticateUser, updateUser);
 
 export default router;

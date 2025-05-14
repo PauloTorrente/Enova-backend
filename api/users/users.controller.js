@@ -46,18 +46,18 @@ export const confirmUser = async (req, res) => {
   }
 };
 
-// Update user details
+// Update user details (for /users/:id endpoint)
 export const updateUser = async (req, res) => {
   const { id } = req.params;
   const requester = req.user;
 
-  // Apenas o próprio usuário ou um admin pode editar
+  // Only the user themselves or an admin can edit
   if (requester.role !== 'admin' && requester.userId !== Number(id)) {
-    return res.status(403).json({ message: 'Forbidden: você só pode alterar seu próprio perfil.' });
+    return res.status(403).json({ message: 'Forbidden: you can only edit your own profile.' });
   }
 
-  // Lista dos campos que o usuário pode modificar
-  const allowed = [
+  // List of fields users can modify
+  const allowedFields = [
     'firstName',
     'lastName',
     'gender',
@@ -71,9 +71,9 @@ export const updateUser = async (req, res) => {
     'educationLevel'
   ];
 
-  // Monta o objeto com os dados atualizados
+  // Build the update object
   const updatedData = {};
-  for (const key of allowed) {
+  for (const key of allowedFields) {
     if (req.body[key] !== undefined) {
       updatedData[key] = req.body[key];
     }
@@ -86,6 +86,46 @@ export const updateUser = async (req, res) => {
   } catch (error) {
     console.error('Error updating user:', error);
     res.status(500).json({ message: 'Error updating user', error: error.message });
+  }
+};
+
+// New endpoint for updating current user (/users/me)
+export const updateCurrentUser = async (req, res) => {
+  const userId = req.user.userId;
+  
+  // Same allowed fields as regular update
+  const allowedFields = [
+    'firstName',
+    'lastName',
+    'gender',
+    'age',
+    'phoneNumber',
+    'city',
+    'residentialArea',
+    'purchaseResponsibility',
+    'childrenCount',
+    'childrenAges',
+    'educationLevel'
+  ];
+
+  // Build the update object
+  const updatedData = {};
+  for (const key of allowedFields) {
+    if (req.body[key] !== undefined) {
+      updatedData[key] = req.body[key];
+    }
+  }
+
+  try {
+    const updatedUser = await usersService.updateUser(userId, updatedData);
+    if (!updatedUser) return res.status(404).json({ message: 'User not found' });
+    
+    // Return safe user data without sensitive fields
+    const { password, confirmationToken, ...safeUser } = updatedUser.toJSON();
+    res.json(safeUser);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ message: 'Error updating profile', error: error.message });
   }
 };
 
