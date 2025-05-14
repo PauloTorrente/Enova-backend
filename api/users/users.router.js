@@ -13,6 +13,7 @@ import User from './users.model.js';
 
 const router = express.Router();
 
+// Current user routes (specific routes first)
 router.get('/me', authenticateUser, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.userId);
@@ -29,13 +30,15 @@ router.get('/me', authenticateUser, async (req, res) => {
   }
 });
 
-// Routes for handling user actions
+router.patch('/me', authenticateUser, updateCurrentUser); 
+// General user routes
 router.get('/', getAllUsers); 
+
+// Parameterized routes (must come after specific routes)
 router.get('/:id', getUserById);
 router.patch('/:id', authenticateUser, updateUser); 
 router.delete('/:id', authenticateAdmin, deleteUser);  
 router.get('/confirm/:token', confirmUser);
 router.get('/:id/wallet', getWalletBalance); 
-router.patch('/me', authenticateUser, updateCurrentUser);
 
 export default router;
