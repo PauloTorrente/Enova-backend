@@ -2,6 +2,7 @@ import express from 'express';
 import { 
   getUserById, 
   updateUser, 
+  updateCurrentUser,
   confirmUser, 
   getAllUsers, 
   deleteUser, 
@@ -35,6 +36,6 @@ router.patch('/:id', authenticateUser, updateUser);
 router.delete('/:id', authenticateAdmin, deleteUser);  
 router.get('/confirm/:token', confirmUser);
 router.get('/:id/wallet', getWalletBalance); 
-router.patch('/me', authenticateUser, updateUser);
+router.patch('/me', authenticateUser, updateCurrentUser);
 
 export default router;
