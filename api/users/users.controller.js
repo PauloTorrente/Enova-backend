@@ -116,16 +116,24 @@ export const updateCurrentUser = async (req, res) => {
     }
   }
 
+  // Sanitize phoneNumber
+  if (updatedData.phoneNumber) {
+    updatedData.phoneNumber = String(updatedData.phoneNumber);
+  }
+
   try {
     const updatedUser = await usersService.updateUser(userId, updatedData);
     if (!updatedUser) return res.status(404).json({ message: 'User not found' });
-    
+
     // Return safe user data without sensitive fields
     const { password, confirmationToken, ...safeUser } = updatedUser.toJSON();
     res.json(safeUser);
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({ message: 'Error updating profile', error: error.message });
+    res.status(400).json({
+      message: 'Validation error',
+      errors: error.errors?.map(err => err.message) || [error.message]
+    });
   }
 };
 
@@ -173,3 +181,4 @@ export const getWalletBalance = async (req, res) => {
     res.status(500).json({ message: 'Error fetching wallet balance', error: error.message });
   }
 };
+

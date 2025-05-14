@@ -74,6 +74,13 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true, 
       field: 'phone_number',
+      validate: {
+        isString(value) {
+          if (value && typeof value !== 'string') {
+            throw new Error('Phone number must be a string');
+          }
+        }
+      }
     },
     city: {
       type: DataTypes.STRING,
