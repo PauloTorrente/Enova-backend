@@ -92,8 +92,7 @@ export const updateUser = async (req, res) => {
 // New endpoint for updating current user (/users/me)
 export const updateCurrentUser = async (req, res) => {
   const userId = req.user.userId;
-  
-  // Same allowed fields as regular update
+
   const allowedFields = [
     'firstName',
     'lastName',
@@ -117,25 +116,29 @@ export const updateCurrentUser = async (req, res) => {
   }
 
   // Sanitize phoneNumber
-  if (updatedData.phoneNumber) {
-    updatedData.phoneNumber = String(updatedData.phoneNumber);
+  if ('phoneNumber' in updatedData) {
+    updatedData.phoneNumber = updatedData.phoneNumber
+      ? String(updatedData.phoneNumber)
+      : null;
   }
 
   try {
     const updatedUser = await usersService.updateUser(userId, updatedData);
-    if (!updatedUser) return res.status(404).json({ message: 'User not found' });
+    if (!updatedUser) return res.status(404).json({ message: 'Usuário não encontrado' });
 
-    // Return safe user data without sensitive fields
-    const { password, confirmationToken, ...safeUser } = updatedUser.toJSON();
+    const { password, confirmationToken, phoneNumber, ...safeUser } = updatedUser.toJSON();
+    safeUser.hasPhoneNumber = !!phoneNumber;
+
     res.json(safeUser);
   } catch (error) {
-    console.error('Error updating user:', error);
+    console.error('Erro ao atualizar usuário:', error);
     res.status(400).json({
-      message: 'Validation error',
+      message: 'Erro de validação',
       errors: error.errors?.map(err => err.message) || [error.message]
     });
   }
 };
+
 
 // Get all users (optional, with filters)
 export const getAllUsers = async (req, res) => {
@@ -181,4 +184,3 @@ export const getWalletBalance = async (req, res) => {
     res.status(500).json({ message: 'Error fetching wallet balance', error: error.message });
   }
 };
-

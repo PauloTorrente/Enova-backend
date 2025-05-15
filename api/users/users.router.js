@@ -21,7 +21,11 @@ router.get('/me', authenticateUser, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
-    const { password, ...safeUser } = user.toJSON();
+
+    const { password, phoneNumber, ...safeUser } = user.toJSON();
+
+    safeUser.hasPhoneNumber = !!phoneNumber;
+
     res.status(200).json(safeUser);
 
   } catch (error) {
