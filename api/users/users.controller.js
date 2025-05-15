@@ -1,8 +1,7 @@
 import * as usersService from './users.service.js';
-import User from '../users/users.model.js';
-import { authenticateAdmin } from '../../middlewares/auth.middleware.js';
+import User from './users.model.js';
 
-// Get user details by ID
+// This function gets a single user by their ID (like when admin wants to check someone’s profile)
 export const getUserById = async (req, res) => {
   const { id } = req.params;
 
@@ -18,16 +17,18 @@ export const getUserById = async (req, res) => {
   }
 };
 
-// Confirm user registration using a confirmation token
+// This is used when a user clicks on a confirmation email link
 export const confirmUser = async (req, res) => {
   const { token } = req.params;
 
   try {
+    // Look for a user with this confirmation token
     const user = await User.findOne({ where: { confirmationToken: token } });
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
+    // Check if the token is older than 1 hour
     const expirationTime = 60 * 60 * 1000;
     const isExpired = Date.now() - new Date(user.createdAt).getTime() > expirationTime;
 
@@ -35,6 +36,7 @@ export const confirmUser = async (req, res) => {
       return res.status(400).json({ message: 'Token has expired' });
     }
 
+    // Confirm the user and clear the token
     user.isConfirmed = true;
     user.confirmationToken = null;
     await user.save();
@@ -46,17 +48,17 @@ export const confirmUser = async (req, res) => {
   }
 };
 
-// Update user details (for /users/:id endpoint)
+// This is for admins or users editing user profiles by ID (/users/:id)
 export const updateUser = async (req, res) => {
   const { id } = req.params;
   const requester = req.user;
 
-  // Only the user themselves or an admin can edit
+  // Only the user themselves or an admin can update
   if (requester.role !== 'admin' && requester.userId !== Number(id)) {
     return res.status(403).json({ message: 'Forbidden: you can only edit your own profile.' });
   }
 
-  // List of fields users can modify
+  // These are the fields that can be updated
   const allowedFields = [
     'firstName',
     'lastName',
@@ -71,7 +73,7 @@ export const updateUser = async (req, res) => {
     'educationLevel'
   ];
 
-  // Build the update object
+  // Build an object with the updated values only
   const updatedData = {};
   for (const key of allowedFields) {
     if (req.body[key] !== undefined) {
@@ -89,10 +91,11 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// New endpoint for updating current user (/users/me)
+// This is for updating the logged-in user using /users/me
 export const updateCurrentUser = async (req, res) => {
   const userId = req.user.userId;
 
+  // Fields that users can update themselves
   const allowedFields = [
     'firstName',
     'lastName',
@@ -107,7 +110,7 @@ export const updateCurrentUser = async (req, res) => {
     'educationLevel'
   ];
 
-  // Build the update object
+  // Prepare the data to update
   const updatedData = {};
   for (const key of allowedFields) {
     if (req.body[key] !== undefined) {
@@ -115,7 +118,7 @@ export const updateCurrentUser = async (req, res) => {
     }
   }
 
-  // Sanitize phoneNumber
+  // Make sure phoneNumber is a string or null
   if ('phoneNumber' in updatedData) {
     updatedData.phoneNumber = updatedData.phoneNumber
       ? String(updatedData.phoneNumber)
@@ -124,23 +127,25 @@ export const updateCurrentUser = async (req, res) => {
 
   try {
     const updatedUser = await usersService.updateUser(userId, updatedData);
-    if (!updatedUser) return res.status(404).json({ message: 'Usuário não encontrado' });
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
+    // Remove sensitive fields and include real phoneNumber
     const { password, confirmationToken, phoneNumber, ...safeUser } = updatedUser.toJSON();
     safeUser.hasPhoneNumber = !!phoneNumber;
 
     res.json(safeUser);
   } catch (error) {
-    console.error('Erro ao atualizar usuário:', error);
+    console.error('Error updating current user:', error);
     res.status(400).json({
-      message: 'Erro de validação',
+      message: 'Validation error',
       errors: error.errors?.map(err => err.message) || [error.message]
     });
   }
 };
 
-
-// Get all users (optional, with filters)
+// This gets a list of all users (can support filters via query params)
 export const getAllUsers = async (req, res) => {
   const filters = req.query;
 
@@ -153,7 +158,7 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// Soft delete a user (ensure that only admins can perform this action)
+// This function soft deletes a user (doesn't remove from DB, just marks)
 export const deleteUser = async (req, res) => {
   const { id } = req.params;
 
@@ -169,7 +174,7 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// Get user wallet balance
+// This gets the wallet balance for a specific user by ID
 export const getWalletBalance = async (req, res) => {
   const { id } = req.params;
 
