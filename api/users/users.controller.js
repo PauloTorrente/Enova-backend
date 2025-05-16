@@ -120,8 +120,8 @@ export const updateCurrentUser = async (req, res) => {
 
   // Make sure phoneNumber is a string or null
   if ('phoneNumber' in updatedData) {
-    updatedData.phoneNumber = updatedData.phoneNumber
-      ? String(updatedData.phoneNumber)
+    updatedData.phoneNumber = updatedData.phoneNumber 
+      ? String(updatedData.phoneNumber).replace(/[^0-9+]/g, '')
       : null;
   }
 

@@ -72,12 +72,16 @@ const User = sequelize.define(
     },
     phoneNumber: {
       type: DataTypes.STRING,
-      allowNull: true, 
-      field: 'phone_number',
+      allowNull: true,
       validate: {
         isString(value) {
           if (value && typeof value !== 'string') {
             throw new Error('Phone number must be a string');
+          }
+        },
+        isPhoneFormat(value) {
+          if (value && !/^\+?[0-9\s\-()]+$/.test(value)) {
+            throw new Error('Invalid phone number format');
           }
         }
       }
