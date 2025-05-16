@@ -6,23 +6,25 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { sequelize } from './config/database.js';
 import router from './api/router.js';
-import './api/users/cleanUnconfirmedUsers.js';
+import './api/users/cleanUnconfirmedUsers.js'; // Scheduled job to remove old unconfirmed users
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Define which domains are allowed to make requests
 const allowedOrigins = [
   'https://www.opinacash.com',
   'https://opinacash.com',
-  'http://localhost:5173' 
+  'http://localhost:5173' // Dev environment
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('render.com')) {
+    if (!origin) return callback(null, true); // Allow non-browser tools like Postman
+    if (allowedOrigins.includes(origin) || origin.includes('render.com')) {
       callback(null, true);
     } else {
+      console.warn(`🌐 CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -31,36 +33,37 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-// Middleware configuration
-app.use(express.json());
-app.use(cors(corsOptions)); 
-app.use(helmet());
+// Apply middlewares
+app.use(express.json()); // Parse incoming JSON
+app.use(cors(corsOptions)); // Apply CORS with our config
+app.use(helmet()); // Basic security headers
 
+// Pre-flight requests handler
 app.options('*', cors(corsOptions));
 
-// Router configuration
+// Mount API routes
 app.use('/api', router);
 
-// Test database connection
+// Test DB connection and start server
 sequelize.authenticate()
   .then(() => {
-    console.log('Connected to PostgreSQL database');
+    console.log('✅ Connected to PostgreSQL database');
 
-    // Start the server
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   })
   .catch(err => {
-    console.error('Database connection error:', err);
-    process.exit(1);
+    console.error('❌ Database connection error:', err.message);
+    process.exit(1); // Stop server if DB fails
   });
 
-// Error handling middleware
+// Global error handler
 app.use((err, req, res, next) => {
   if (err.name === 'CorsError') {
     return res.status(403).json({ error: 'Acesso não autorizado' });
   }
-  console.error(err.stack);
+
+  console.error('🔥 Internal server error:', err.stack);
   res.status(500).send('Algo quebrou!');
 });

@@ -1,23 +1,24 @@
-import jwt from 'jsonwebtoken'; // Importing jsonwebtoken to verify the JWT
+import jwt from 'jsonwebtoken'; // JWT verification
 
 // Middleware to check if the user is authenticated
 export const authenticateUser = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    console.log('No token provided'); // Debugging log
+    console.log('🚫 No token provided');
     return res.status(401).json({ message: 'No token, authorization denied' });
   }
 
   try {
     // Verify the token and decode it
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user info to request
+    req.user = decoded;
 
-    console.log('Authenticated User:', req.user); // Debugging log
-    next(); // Proceed to the next middleware or route handler
+    // Minimal debug output
+    console.log(`✅ Authenticated User ID: ${req.user.userId}, Role: ${req.user.role}`);
+    next();
   } catch (error) {
-    console.error('Token validation error:', error.message); // Debugging log
+    console.error('❌ Token validation error:', error.message);
     return res.status(401).json({ message: 'Token is not valid' });
   }
 };
@@ -27,25 +28,25 @@ export const authenticateAdmin = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    console.log('No token provided'); // Debugging log
+    console.log('🚫 No token provided');
     return res.status(401).json({ message: 'No token, authorization denied' });
   }
 
   try {
     // Verify the token and decode it
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user info to request
-
-    console.log('Authenticated Admin:', req.user); // Debugging log
+    req.user = decoded;
 
     // Check if the user role is admin
     if (req.user.role !== 'Admin') {
+      console.log(`🚫 Access denied for User ID: ${req.user.userId}, Role: ${req.user.role}`);
       return res.status(403).json({ message: 'Access denied. Only admins can access this resource.' });
     }
 
-    next(); // If the user is an admin, proceed to the next middleware or route handler
+    console.log(`🔒 Authenticated Admin ID: ${req.user.userId}`);
+    next();
   } catch (error) {
-    console.error('Token validation error:', error.message); // Debugging log
+    console.error('❌ Token validation error:', error.message);
     return res.status(401).json({ message: 'Token is not valid' });
   }
 };

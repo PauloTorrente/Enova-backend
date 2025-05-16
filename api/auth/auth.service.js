@@ -7,13 +7,14 @@ import transporter from '../../config/nodemailer.config.js';
 import User from '../users/users.model.js';
 import { fileURLToPath } from 'url';
 
-// Get the current file and directory path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Function to register a new user
 export const register = async ({ email, password, role, firstName, lastName, gender, age, phoneNumber, city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel }) => {
-  console.log('Attempting to register user with email:', email);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Attempting to register new user');
+  }
 
   // Validate required fields
   if (!email || !password || !firstName || !lastName) {
@@ -56,10 +57,11 @@ export const register = async ({ email, password, role, firstName, lastName, gen
 
   // Load the confirmation email template
   const templatePath = path.join(__dirname, '../../assets/templates/emailTemplate.html');
-  console.log('Email template path:', templatePath);
 
   if (!fs.existsSync(templatePath)) {
-    console.error('Email template not found at:', templatePath);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Email template not found at:', templatePath);
+    }
     throw new Error('Error loading the email template');
   }
 
@@ -81,9 +83,14 @@ export const register = async ({ email, password, role, firstName, lastName, gen
       text: `Please confirm your registration by clicking this link: ${confirmationUrl}`,
       html: emailTemplate,
     });
-    console.log('Confirmation email sent to:', email);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Confirmation email sent');
+    }
   } catch (error) {
-    console.error('Error sending confirmation email:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error sending confirmation email:', error);
+    }
     throw new Error('Error sending confirmation email.');
   }
 
@@ -112,24 +119,25 @@ export const login = async (email, password) => {
   // Generate JWT token for authentication
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET, 
+    process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );
 
   // Generate a refresh token for session management
   const refreshToken = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET, 
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 
-  console.log('Generated token:', token);
-  console.log('Generated refresh token:', refreshToken);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('User logged in successfully');
+  }
 
   return { token, refreshToken };
 };
 
-// Function to renew an expired token
+// Function to renew token
 export const refreshToken = async (oldRefreshToken) => {
   try {
     // Verify the old refresh token
@@ -138,14 +146,19 @@ export const refreshToken = async (oldRefreshToken) => {
     // Generate a new access token
     const newToken = jwt.sign(
       { userId: decoded.userId, email: decoded.email, role: decoded.role },
-      process.env.JWT_SECRET, 
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    console.log('New token generated:', newToken);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Token refreshed successfully');
+    }
+
     return newToken;
   } catch (error) {
-    console.error('Invalid refresh token:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error validating refresh token');
+    }
     throw new Error('Invalid refresh token.');
   }
 };
