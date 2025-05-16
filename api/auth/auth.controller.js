@@ -3,7 +3,7 @@ import User from '../users/users.model.js';
 
 // Register a new user
 export const register = async (req, res) => {
-  // junior dev comment: we get all needed fields from request body
+  // junior dev: get all needed fields from request body
   const {
     email, password, role,
     firstName, lastName, gender,
@@ -15,7 +15,7 @@ export const register = async (req, res) => {
   console.log('Registration data received:', req.body);
 
   try {
-    // call service to create user
+    // junior dev: call service to create user
     const newUser = await userService.register({
       email, password, role,
       firstName, lastName, gender,
@@ -24,7 +24,7 @@ export const register = async (req, res) => {
       childrenCount, childrenAges, educationLevel
     });
 
-    // junior dev comment: respond with created user (without password)
+    // junior dev: strip out sensitive fields before responding
     const { password: pw, confirmationToken, ...safeUser } = newUser.toJSON();
     return res
       .status(201)
@@ -44,14 +44,14 @@ export const register = async (req, res) => {
 
 // User login
 export const login = async (req, res) => {
-  // junior dev comment: extract credentials from request
+  // junior dev: get credentials from request body
   const { email, password } = req.body;
 
   try {
-    // authenticate and get tokens
+    // junior dev: authenticate and get tokens
     const { token, refreshToken } = await userService.login(email, password);
 
-    // junior dev comment: fetch full user profile so we can include phoneNumber
+    // junior dev: fetch full user record to include phoneNumber, etc.
     const userRecord = await User.findOne({
       where: { email },
       attributes: { exclude: ['password', 'confirmationToken'] }
@@ -62,12 +62,12 @@ export const login = async (req, res) => {
     }
     const userData = userRecord.toJSON();
 
-    // respond with tokens and user data
+    // junior dev: respond with tokens + full user data
     return res.status(200).json({
       message: 'Login successful!',
       token,
       refreshToken,
-      user: userData   // includes phoneNumber, firstName, lastName, etc.
+      user: userData   // <— includes phoneNumber, firstName, lastName, etc.
     });
   } catch (error) {
     // log error for debugging
@@ -94,7 +94,7 @@ export const refreshToken = async (req, res) => {
   }
 
   try {
-    // get a brand new access token
+    // junior dev: verify and generate new access token
     const newToken = await userService.refreshToken(oldToken);
     return res.status(200).json({ message: 'Token refreshed successfully!', token: newToken });
   } catch (error) {
