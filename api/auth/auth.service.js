@@ -7,6 +7,7 @@ import transporter from '../../config/nodemailer.config.js';
 import User from '../users/users.model.js';
 import { fileURLToPath } from 'url';
 
+// Get the current file and directory path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

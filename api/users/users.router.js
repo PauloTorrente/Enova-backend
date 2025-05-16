@@ -44,6 +44,13 @@ router.get('/me', authenticateUser, async (req, res) => {
 });
 
 /**
+ * PATCH /me
+ * Update the current logged-in user's profile.
+ * MUST COME BEFORE /:id ROUTE!
+ */
+router.patch('/me', authenticateUser, updateCurrentUser);
+
+/**
  * GET /
  * List all users (supports optional query filters).
  */
@@ -78,11 +85,5 @@ router.get('/confirm/:token', confirmUser);
  * Get wallet balance for a specific user.
  */
 router.get('/:id/wallet', getWalletBalance);
-
-/**
- * PATCH /me
- * Update the current logged-in user's profile.
- */
-router.patch('/me', authenticateUser, updateCurrentUser);
 
 export default router;
