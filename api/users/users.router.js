@@ -34,7 +34,7 @@ router.get('/me', authenticateUser, async (req, res) => {
     delete json.resetPasswordExpires;
 
     // Add helper flag
-    json.hasPhoneNumber = !!json.phoneNumber;
+    json.hasphone_number = !!json.phone_number;
 
     return res.status(200).json(json);
   } catch (error) {

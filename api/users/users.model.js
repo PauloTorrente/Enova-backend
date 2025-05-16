@@ -70,7 +70,7 @@ const User = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true, 
     },
-    phoneNumber: {
+    phone_number: {
       type: DataTypes.STRING,
       allowNull: true,
       validate: {

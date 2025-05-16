@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Function to register a new user
-export const register = async ({ email, password, role, firstName, lastName, gender, age, phoneNumber, city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel }) => {
+export const register = async ({ email, password, role, firstName, lastName, gender, age, phone_number, city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel }) => {
   if (process.env.NODE_ENV === 'development') {
     console.log('Attempting to register new user');
   }
@@ -43,7 +43,7 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     lastName,
     gender: gender || null,
     age: age || null,
-    phoneNumber: phoneNumber || null,
+    phone_number: phone_number || null,
     city: city || null,
     residentialArea: residentialArea || null,
     purchaseResponsibility: purchaseResponsibility || null,

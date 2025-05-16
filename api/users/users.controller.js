@@ -64,7 +64,7 @@ export const updateUser = async (req, res) => {
     'lastName',
     'gender',
     'age',
-    'phoneNumber',
+    'phone_number',
     'city',
     'residentialArea',
     'purchaseResponsibility',
@@ -101,7 +101,7 @@ export const updateCurrentUser = async (req, res) => {
     'lastName',
     'gender',
     'age',
-    'phoneNumber',
+    'phone_number',
     'city',
     'residentialArea',
     'purchaseResponsibility',
@@ -118,10 +118,10 @@ export const updateCurrentUser = async (req, res) => {
     }
   }
 
-  // Make sure phoneNumber is a string or null
-  if ('phoneNumber' in updatedData) {
-    updatedData.phoneNumber = updatedData.phoneNumber 
-      ? String(updatedData.phoneNumber).replace(/[^0-9+]/g, '')
+  // Make sure phone_number is a string or null
+  if ('phone_number' in updatedData) {
+    updatedData.phone_number = updatedData.phone_number 
+      ? String(updatedData.phone_number).replace(/[^0-9+]/g, '')
       : null;
   }
 
@@ -131,9 +131,9 @@ export const updateCurrentUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Remove sensitive fields and include real phoneNumber
-    const { password, confirmationToken, phoneNumber, ...safeUser } = updatedUser.toJSON();
-    safeUser.hasPhoneNumber = !!phoneNumber;
+    // Remove sensitive fields and include real phone_number
+    const { password, confirmationToken, phone_number, ...safeUser } = updatedUser.toJSON();
+    safeUser.hasphone_number = !!phone_number;
 
     res.json(safeUser);
   } catch (error) {
