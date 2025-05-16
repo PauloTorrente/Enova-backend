@@ -8,75 +8,81 @@ import {
   deleteUser, 
   getWalletBalance 
 } from './users.controller.js';
-import { authenticateUser, authenticateAdmin } from '../../middlewares/auth.middleware.js'; 
+import { authenticateUser, authenticateAdmin } from '../../middlewares/auth.middleware.js';
 import User from './users.model.js';
 
 const router = express.Router();
 
+/**
+ * GET /me
+ * Fetch the current user's profile.
+ */
 router.get('/me', authenticateUser, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.userId);
-
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Convert to JSON and handle field name conversions
-    const userData = user.toJSON();
-    const safeUser = {
-      ...userData,
-      phoneNumber: userData.phone_number, // Explicit mapping
-      firstName: userData.first_name,
-      lastName: userData.last_name,
-      residentialArea: userData.residential_area,
-      purchaseResponsibility: userData.purchase_responsibility,
-      childrenCount: userData.children_count,
-      childrenAges: userData.children_ages,
-      educationLevel: userData.education_level,
-      walletBalance: userData.wallet_balance,
-      isConfirmed: userData.isconfirmed,
-      createdAt: userData.createdat
-    };
+    // Convert to plain object
+    const json = user.toJSON();
 
-    // Remove sensitive fields
-    delete safeUser.password;
-    delete safeUser.confirmationToken;
-    delete safeUser.resetPasswordToken;
-    delete safeUser.resetPasswordExpires;
-    
-    // Remove original database fields
-    delete safeUser.phone_number;
-    delete safeUser.first_name;
-    delete safeUser.last_name;
-    delete safeUser.residential_area;
-    delete safeUser.purchase_responsibility;
-    delete safeUser.children_count;
-    delete safeUser.children_ages;
-    delete safeUser.education_level;
-    delete safeUser.wallet_balance;
-    delete safeUser.isconfirmed;
-    delete safeUser.createdat;
+    // Remove sensitive/internal fields
+    delete json.password;
+    delete json.confirmationToken;
+    delete json.resetPasswordToken;
+    delete json.resetPasswordExpires;
 
-    return res.status(200).json(safeUser);
+    // Add helper flag
+    json.hasPhoneNumber = !!json.phoneNumber;
 
+    return res.status(200).json(json);
   } catch (error) {
     console.error('Error fetching user profile:', error);
-    return res.status(500).json({ 
-      message: 'Internal server error', 
-      error: error.message 
-    });
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 });
 
-// Other routes
+/**
+ * GET /
+ * List all users (supports optional query filters).
+ */
 router.get('/', getAllUsers);
+
+/**
+ * GET /:id
+ * Retrieve a specific user by ID.
+ */
 router.get('/:id', getUserById);
+
+/**
+ * PATCH /:id
+ * Update another user's profile (self or admin).
+ */
 router.patch('/:id', authenticateUser, updateUser);
+
+/**
+ * DELETE /:id
+ * Soft-delete a user (admin only).
+ */
 router.delete('/:id', authenticateAdmin, deleteUser);
+
+/**
+ * GET /confirm/:token
+ * Confirm a user's email via token.
+ */
 router.get('/confirm/:token', confirmUser);
 
-// Route to get a user's wallet balance by ID
+/**
+ * GET /:id/wallet
+ * Get wallet balance for a specific user.
+ */
 router.get('/:id/wallet', getWalletBalance);
+
+/**
+ * PATCH /me
+ * Update the current logged-in user's profile.
+ */
 router.patch('/me', authenticateUser, updateCurrentUser);
 
 export default router;
