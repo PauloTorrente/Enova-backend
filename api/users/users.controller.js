@@ -2,16 +2,31 @@ import * as usersService from './users.service.js';
 import User from './users.model.js';
 
 // This function gets a single user by their ID (like when admin wants to check someone’s profile)
+// This function gets a single user by ID
 export const getUserById = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params; // Get the ID from the URL
+  const requester = req.user; // Get the user who made the request (added by auth middleware)
 
   try {
+    // Call the service to find user in the database
     const user = await usersService.getUserById(id);
+    
+    // If user is not found, send 404 response
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // If the requester is NOT an admin, only send public info
+    if (requester.role !== 'admin') {
+      // Remove sensitive info like password and tokens
+      const { password, confirmationToken, resetPasswordToken, ...publicData } = user.toJSON();
+      return res.json(publicData);
+    }
+
+    // If the requester is an admin, return all user data
     res.json(user);
   } catch (error) {
+    // If there's an error, log it and return 500
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Error fetching user', error: error.message });
   }
@@ -145,14 +160,30 @@ export const updateCurrentUser = async (req, res) => {
   }
 };
 
-// This gets a list of all users (can support filters via query params)
+// This function gets all users (with optional filters)
 export const getAllUsers = async (req, res) => {
-  const filters = req.query;
+  const requester = req.user; // The user making the request
+  const filters = req.query;  // Optional filters from query params
 
   try {
+    // Get all users using filters (if any)
     const users = await usersService.getAllUsers(filters);
+
+    // If the requester is NOT an admin, only return public info
+    if (requester.role !== 'admin') {
+      const publicUsers = users.map(user => {
+        // Remove sensitive fields
+        const { password, confirmationToken, resetPasswordToken, ...publicData } = user.toJSON();
+        return publicData;
+      });
+
+      return res.json(publicUsers);
+    }
+
+    // If admin, return full user list with all data
     res.json(users);
   } catch (error) {
+    // If there's an error, return 500 and log it
     console.error('Error fetching users:', error);
     res.status(500).json({ message: 'Error fetching users', error: error.message });
   }

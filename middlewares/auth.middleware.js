@@ -1,52 +1,67 @@
-import jwt from 'jsonwebtoken'; // JWT verification
+import jwt from 'jsonwebtoken'; // Import JWT library for token verification
 
-// Middleware to check if the user is authenticated
+// Middleware to authenticate regular users
+
 export const authenticateUser = (req, res, next) => {
+  // Get token from Authorization header (format: "Bearer <token>")
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
+  // If no token found, immediately deny access
   if (!token) {
-    console.log('🚫 No token provided');
-    return res.status(401).json({ message: 'No token, authorization denied' });
+    console.log('🚫 Access attempt with no token');
+    return res.status(401).json({ 
+      message: 'Access denied. Please login first.' 
+    });
   }
 
   try {
-    // Verify the token and decode it
+    // Verify the token using our secret key
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Attach the decoded user info to the request object
     req.user = decoded;
 
-    // Minimal debug output
-    console.log(`✅ Authenticated User ID: ${req.user.userId}, Role: ${req.user.role}`);
+    // Helpful debug log (only shown in development)
+    console.log(`✅ User authenticated: ${req.user.email} (ID: ${req.user.userId})`);
+    
+    // Move to the next middleware/route handler
     next();
+  
   } catch (error) {
-    console.error('❌ Token validation error:', error.message);
-    return res.status(401).json({ message: 'Token is not valid' });
+    // Handle different types of JWT errors
+    console.error('❌ Token verification failed:', error.message);
+    
+    let errorMessage = 'Invalid token';
+    if (error.name === 'TokenExpiredError') {
+      errorMessage = 'Token expired. Please login again.';
+    } else if (error.name === 'JsonWebTokenError') {
+      errorMessage = 'Malformed token';
+    }
+
+    return res.status(401).json({ 
+      message: errorMessage 
+    });
   }
 };
 
-// Middleware to check if the user is authenticated and is an admin
+// Middleware to authenticate ADMIN users only
 export const authenticateAdmin = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-
-  if (!token) {
-    console.log('🚫 No token provided');
-    return res.status(401).json({ message: 'No token, authorization denied' });
-  }
-
-  try {
-    // Verify the token and decode it
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-
-    // Check if the user role is admin
-    if (req.user.role !== 'Admin') {
-      console.log(`🚫 Access denied for User ID: ${req.user.userId}, Role: ${req.user.role}`);
-      return res.status(403).json({ message: 'Access denied. Only admins can access this resource.' });
+  // First, check regular authentication
+  authenticateUser(req, res, () => {
+    // If we get here, authenticateUser passed
+    
+    // Check if user has admin privileges (case-insensitive check)
+    if (req.user?.role?.toLowerCase() !== 'admin') {
+      console.log(`🚫 Admin access denied for ${req.user.email} (role: ${req.user.role})`);
+      return res.status(403).json({ 
+        message: 'Administrator privileges required.' 
+      });
     }
 
-    console.log(`🔒 Authenticated Admin ID: ${req.user.userId}`);
+    // Helpful debug log
+    console.log(`🔒 Admin access granted to ${req.user.email}`);
+    
+    // User is authenticated AND is admin - proceed
     next();
-  } catch (error) {
-    console.error('❌ Token validation error:', error.message);
-    return res.status(401).json({ message: 'Token is not valid' });
-  }
+  });
 };

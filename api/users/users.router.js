@@ -54,13 +54,13 @@ router.patch('/me', authenticateUser, updateCurrentUser);
  * GET /
  * List all users (supports optional query filters).
  */
-router.get('/', getAllUsers);
+router.get('/',authenticateAdmin, getAllUsers);
 
 /**
  * GET /:id
  * Retrieve a specific user by ID.
  */
-router.get('/:id', getUserById);
+router.get('/:id', authenticateAdmin, getUserById);
 
 /**
  * PATCH /:id

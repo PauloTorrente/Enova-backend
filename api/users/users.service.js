@@ -49,3 +49,7 @@ export const updateWalletBalance = async (id, amount) => {
   const newBalance = user.walletBalance + amount;
   return await usersRepo.updateWalletBalance(id, newBalance);  
 };
+
+export const getAllUsers = async (filters) => {
+  return await usersRepo.getAll(filters);
+};

@@ -127,4 +127,10 @@ const User = sequelize.define(
   }
 );
 
+User.addScope('publicData', {
+  attributes: { 
+    exclude: ['password', 'confirmationToken', 'resetPasswordToken', 'resetPasswordExpires'] 
+  }
+});
+
 export default User;
