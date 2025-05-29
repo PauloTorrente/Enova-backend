@@ -26,6 +26,14 @@ const Survey = sequelize.define('Survey', {
           throw new Error('Questions must be an array');
         }
         
+        // Define allowed answer length constraints
+        const allowedLengths = {
+          short: { min: 1, max: 100 },     // Minimum 1, maximum 100 chars
+          medium: { min: 10, max: 300 },   // Minimum 10, maximum 300 chars
+          long: { min: 50, max: 1000 },    // Minimum 50, maximum 1000 chars
+          unrestricted: { min: 0, max: Infinity } // No limits
+        };
+        
         // Validate each question object in the array
         for (const question of value) {
           // Required fields for every question
@@ -41,6 +49,31 @@ const Survey = sequelize.define('Survey', {
           // If video exists, validate it's a string (URL)
           if (question.video && typeof question.video !== 'string') {
             throw new Error('Video must be a string (URL)');
+          }
+
+          // Validate answerLength if provided
+          if (question.answerLength) {
+            if (typeof question.answerLength !== 'string') {
+              throw new Error('answerLength must be a string');
+            }
+            
+            // Check if answerLength is one of the allowed types
+            if (!allowedLengths[question.answerLength]) {
+              throw new Error(`Invalid answerLength. Allowed values: ${Object.keys(allowedLengths).join(', ')}`);
+            }
+
+            // For text questions, validate min/max constraints if options are provided
+            if (question.type === 'text' && question.options) {
+              const options = Array.isArray(question.options) ? question.options : [];
+              options.forEach(option => {
+                if (option.minLength && typeof option.minLength !== 'number') {
+                  throw new Error('minLength must be a number');
+                }
+                if (option.maxLength && typeof option.maxLength !== 'number') {
+                  throw new Error('maxLength must be a number');
+                }
+              });
+            }
           }
         }
       }

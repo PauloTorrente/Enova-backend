@@ -43,47 +43,25 @@ router.get('/me', authenticateUser, async (req, res) => {
   }
 });
 
-/**
- * PATCH /me
- * Update the current logged-in user's profile.
- * MUST COME BEFORE /:id ROUTE!
- */
+// Update the current logged-in user's profile.
 router.patch('/me', authenticateUser, updateCurrentUser);
 
-/**
- * GET /
- * List all users (supports optional query filters).
- */
+//List all users (supports optional query filters).
 router.get('/',authenticateAdmin, getAllUsers);
 
-/**
- * GET /:id
- * Retrieve a specific user by ID.
- */
+// Retrieve a specific user by ID.
 router.get('/:id', authenticateAdmin, getUserById);
 
-/**
- * PATCH /:id
- * Update another user's profile (self or admin).
- */
+// Update another user's profile (self or admin).
 router.patch('/:id', authenticateUser, updateUser);
 
-/**
- * DELETE /:id
- * Soft-delete a user (admin only).
- */
+//Soft-delete a user (admin only).
 router.delete('/:id', authenticateAdmin, deleteUser);
 
-/**
- * GET /confirm/:token
- * Confirm a user's email via token.
- */
+// Confirm a user's email via token.
 router.get('/confirm/:token', confirmUser);
 
-/**
- * GET /:id/wallet
- * Get wallet balance for a specific user.
- */
+// Get wallet balance for a specific user.
 router.get('/:id/wallet', getWalletBalance);
 
 export default router;

@@ -71,6 +71,18 @@ export const saveResponse = async (surveyId, userId, response) => {
       throw new Error('Survey not found');
     }
 
+    // Check if user has already responded to this survey
+    const existingResponse = await Result.findOne({
+      where: {
+        surveyId,
+        userId
+      }
+    });
+
+    if (existingResponse) {
+      throw new Error('User has already responded to this survey');
+    }
+
     // Check that response contains valid question-answer pairs
     if (!Array.isArray(response) || response.some(item => !item.questionId || !item.answer)) {
       throw new Error('Response contains invalid data (questionId or answer missing)');
