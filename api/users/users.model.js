@@ -120,6 +120,11 @@ const User = sequelize.define(
       defaultValue: 0, 
       field: 'wallet_balance',
     },
+    score: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0, 
+    field: 'score',
+},
   },
   {
     tableName: 'accounts_db',
@@ -132,5 +137,12 @@ User.addScope('publicData', {
     exclude: ['password', 'confirmationToken', 'resetPasswordToken', 'resetPasswordExpires'] 
   }
 });
+
+User.associate = (models) => {
+  User.hasMany(models.Result, {
+    foreignKey: 'userId',
+    as: 'results'
+  });
+};
 
 export default User;

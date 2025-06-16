@@ -1,6 +1,9 @@
 import Result from './results.model.js'; // Importing the Result model
 import Survey from '../surveys/surveys.model.js'; // Importing the Survey model to check the survey details
+import * as resultsRepository from './results.repository.js'; //Importing to see each user's answer
+import User from '../users/users.model.js';//Importing the users information
 import { Op } from 'sequelize'; // Importing Sequelize operators to perform various query conditions
+import { sequelize } from '../../config/database.js'; //Import the database
 
 // Function to check if the survey exists
 const checkSurveyExistence = async (surveyId) => {
@@ -128,6 +131,37 @@ export const exportResponsesToExcel = async (surveyId) => {
   }));
 };
 
+// This is like a middleman between controller and repository
+export const getSurveyResponsesWithUserDetails = async (surveyId) => {
+  try {
+    console.log(`[DEBUG] Fetching responses with user details for survey: ${surveyId}`);
+    
+    // Verify User model is properly imported
+    if (!User) {
+      console.error('[ERROR] User model is not imported properly');
+      throw new Error('User model not available');
+    }
+    
+    // Log sequelize models to verify associations
+    console.log('[DEBUG] Sequelize models:', sequelize.models);
+    
+    const responses = await Result.findAll({
+      where: { surveyId },
+      include: [{
+        model: User,
+        as: 'user', // Must match the association alias
+        attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age']
+      }]
+    });
+    
+    console.log(`[DEBUG] Found ${responses.length} responses with user details`);
+    return responses;
+  } catch (error) {
+    console.error('[ERROR] in getSurveyResponsesWithUserDetails:', error);
+    throw new Error('Service error: ' + error.message);
+  }
+};
+
 // Exporting the results service for use in other parts of the application
 const resultsService = {
   saveResponse,
@@ -135,6 +169,7 @@ const resultsService = {
   getUserResponses,
   getResponsesByQuestion,
   exportResponsesToExcel,
+  getSurveyResponsesWithUserDetails
 };
 
 export default resultsService;

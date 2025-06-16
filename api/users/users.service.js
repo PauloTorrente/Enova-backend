@@ -53,3 +53,7 @@ export const updateWalletBalance = async (id, amount) => {
 export const getAllUsers = async (filters) => {
   return await usersRepo.getAll(filters);
 };
+
+export const updateUserScore = async (id, points) => {
+  return await usersRepo.updateScore(id, points);
+};

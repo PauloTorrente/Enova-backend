@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import Result from './results.model.js'; // Importing the Result model to interact with the database
+import User from '../users/users.model.js'
 
 // Function to save a response to the database
 export const saveResponse = async (surveyId, userId, surveyTitle, question, answer) => {
@@ -105,6 +106,20 @@ export const getResponsesByQuestion = async (surveyId, question) => {
   } catch (error) {
     console.error('Error in getResponsesByQuestion:', error.message); // Debugging log
     throw new Error('Error fetching responses for question: ' + error.message);
+  }
+};
+
+export const getSurveyResponsesWithUserDetails = async (surveyId) => {
+  try {
+    return await Result.findAll({
+      where: { surveyId },
+      include: [{
+        model: User, // Importe o modelo User no topo
+        attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age']
+      }]
+    });
+  } catch (error) {
+    throw new Error('Error fetching responses with user details: ' + error.message);
   }
 };
 

@@ -1,22 +1,11 @@
 import express from 'express';
-import { 
-  getUserById, 
-  updateUser, 
-  updateCurrentUser,
-  confirmUser, 
-  getAllUsers, 
-  deleteUser, 
-  getWalletBalance 
-} from './users.controller.js';
+import { getUserById, updateUser, updateCurrentUser,confirmUser, getAllUsers, deleteUser, getWalletBalance,updateUserScore} from './users.controller.js';
 import { authenticateUser, authenticateAdmin } from '../../middlewares/auth.middleware.js';
 import User from './users.model.js';
 
 const router = express.Router();
 
-/**
- * GET /me
- * Fetch the current user's profile.
- */
+//Fetch the current user's profile.
 router.get('/me', authenticateUser, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.userId);
@@ -36,6 +25,8 @@ router.get('/me', authenticateUser, async (req, res) => {
     // Add helper flag
     json.hasphone_number = !!json.phone_number;
 
+    //Score system 
+    json.score = json.score || 0;
     return res.status(200).json(json);
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -63,5 +54,8 @@ router.get('/confirm/:token', confirmUser);
 
 // Get wallet balance for a specific user.
 router.get('/:id/wallet', getWalletBalance);
+
+//Modify UserScore
+router.patch('/:id/score', authenticateAdmin, updateUserScore);
 
 export default router;

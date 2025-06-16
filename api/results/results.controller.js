@@ -128,13 +128,68 @@ export const getResponsesByQuestion = async (req, res) => {
 // Export the function directly with the same name
 export { exportResponsesToExcel };
 
+// Get detailed survey responses with user info
+export const getSurveyResponsesWithUserDetails = async (req, res) => {
+  const { surveyId } = req.params;
+  
+  try {
+    console.log(`[CONTROLLER] Fetching responses for survey: ${surveyId}`);
+    const responses = await resultsService.getSurveyResponsesWithUserDetails(surveyId);
+    
+    if (!responses || responses.length === 0) {
+      console.log(`[CONTROLLER] No responses found for survey: ${surveyId}`);
+      return res.status(404).json({ message: 'No responses found for this survey.' });
+    }
+
+    // Format the response data
+    const formatted = responses.map(r => {
+      // Check if user data exists
+      if (!r.user) {
+        console.warn(`[WARNING] Response ${r.id} has no user data associated`);
+        return {
+          id: r.id,
+          question: r.question,
+          answer: r.answer,
+          user: null
+        };
+      }
+      
+      return {
+        id: r.id,
+        question: r.question,
+        answer: r.answer,
+        user: {
+          id: r.user.id,
+          name: `${r.user.firstName} ${r.user.lastName}`,
+          email: r.user.email,
+          city: r.user.city,
+          area: r.user.residentialArea,
+          gender: r.user.gender,
+          age: r.user.age
+        }
+      };
+    });
+
+    res.status(200).json({
+      message: 'Responses with user details fetched successfully!',
+      responses: formatted
+    });
+  } catch (error) {
+    console.error('[CONTROLLER ERROR] fetching detailed responses:', error);
+    res.status(500).json({ 
+      message: 'Error fetching responses with user details',
+      error: error.message
+    });
+  }
+};
+
 // Export all controller functions
 const resultsController = {
   saveResponse,
   getResponsesBySurvey,
   getUserResponses,
   getResponsesByQuestion,
-  exportResponsesToExcel // Consistent name with the route
+  exportResponsesToExcel
 };
 
 export default resultsController;

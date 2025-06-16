@@ -10,7 +10,7 @@ router.post('/', authenticateAdmin, surveysController.createSurvey); // Create a
 router.delete('/:id', authenticateAdmin, surveysController.deleteSurvey); // Delete a survey (admin only)
 
 // Public routes
-router.get('/active', surveysController.getActiveSurveys); // Get active surveys
+router.get('/active',authenticateAdmin, surveysController.getActiveSurveys); // Get active surveys
 
 // Route to get a survey by access token
 router.get('/respond', authenticateUser, surveysController.getSurveyByAccessToken); // Get survey by access token

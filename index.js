@@ -6,7 +6,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { sequelize } from './config/database.js';
 import router from './api/router.js';
-import './api/users/cleanUnconfirmedUsers.js'; // Scheduled job to remove old unconfirmed users
+import './api/users/cleanUnconfirmedUsers.js'; 
+import User from './api/users/users.model.js';
+import Survey from './api/surveys/surveys.model.js';
+import Result from './api/results/results.model.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -67,3 +70,6 @@ app.use((err, req, res, next) => {
   console.error('🔥 Internal server error:', err.stack);
   res.status(500).send('Algo quebrou!');
 });
+
+Result.associate({ User, Survey });
+User.associate({ Result });

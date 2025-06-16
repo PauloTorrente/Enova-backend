@@ -40,3 +40,12 @@ export const updateWalletBalance = async (id, newBalance) => {
   await User.update({ walletBalance: newBalance }, { where: { id } });
   return await User.findByPk(id);
 };
+
+export const updateScore = async (id, points) => {
+  const user = await User.findByPk(id);
+  if (!user) return null;
+  
+  const newScore = user.score + points;
+  await user.update({ score: newScore });
+  return user;
+};

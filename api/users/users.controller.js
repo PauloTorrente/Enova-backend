@@ -174,6 +174,7 @@ export const getAllUsers = async (req, res) => {
       const publicUsers = users.map(user => {
         // Remove sensitive fields
         const { password, confirmationToken, resetPasswordToken, ...publicData } = user.toJSON();
+        publicData.score = publicData.score || 0;
         return publicData;
       });
 
@@ -218,5 +219,29 @@ export const getWalletBalance = async (req, res) => {
   } catch (error) {
     console.error('Error fetching wallet balance:', error);
     res.status(500).json({ message: 'Error fetching wallet balance', error: error.message });
+  }
+};
+
+// only Admin can update userScore
+export const updateUserScore = async (req, res) => {
+  const { id } = req.params;
+  const { points } = req.body;
+
+  if (typeof points !== 'number') {
+    return res.status(400).json({ message: 'Invalid points value' });
+  }
+
+  try {
+    const updatedUser = await usersService.updateUserScore(id, points);
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ 
+      message: 'Score updated successfully',
+      newScore: updatedUser.score
+    });
+  } catch (error) {
+    console.error('Error updating user score:', error);
+    res.status(500).json({ message: 'Error updating score', error: error.message });
   }
 };

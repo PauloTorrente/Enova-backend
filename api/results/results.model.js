@@ -1,5 +1,7 @@
 import { DataTypes } from 'sequelize'; // Importing DataTypes from Sequelize
 import { sequelize } from '../../config/database.js'; // Importing the Sequelize instance
+import User from '../users/users.model.js';
+import Survey from '../surveys/surveys.model.js'; // Importando o modelo de Survey para uso na associação
 
 // Defining the Result model using Sequelize ORM
 const Result = sequelize.define('Result', {
@@ -41,11 +43,15 @@ const Result = sequelize.define('Result', {
   timestamps: false, // Disabling automatic creation of createdAt and updatedAt columns
 });
 
-// Define the association between Result and Survey
+// Define the association between Result and other models
 Result.associate = (models) => {
+  Result.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
   Result.belongsTo(models.Survey, {
-    foreignKey: 'surveyId', // Foreign key in the Result model
-    as: 'survey', // Alias for the association
+    foreignKey: 'surveyId',
+    as: 'survey'
   });
 };
 
