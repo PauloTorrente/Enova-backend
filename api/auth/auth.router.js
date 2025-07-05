@@ -1,5 +1,11 @@
 import express from 'express'; 
-import { register, login, refreshToken } from './auth.controller.js'; 
+import { 
+  register, 
+  login, 
+  refreshToken,
+  requestPasswordReset,  // Agora importado do controller
+  resetPassword          // Agora importado do controller
+} from './auth.controller.js'; 
 import { authenticateUser, authenticateAdmin } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router(); 
@@ -12,6 +18,12 @@ router.post('/login', login);
 
 // Route for handling refresh tokens
 router.post('/refresh-token', refreshToken);
+
+// Route for requesting password reset
+router.post('/forgot-password', requestPasswordReset);
+
+// Route for resetting password with valid token
+router.post('/reset-password', resetPassword);
 
 // Route that requires authentication
 router.get('/profile', authenticateUser, (req, res) => {
