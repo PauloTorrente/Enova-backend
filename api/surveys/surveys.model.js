@@ -93,6 +93,15 @@ const Survey = sequelize.define('Survey', {
     allowNull: false,       // Token is required
     unique: true,           // Each token must be unique
   },
+  clientId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,        // Can be null for surveys created by admins
+    references: {
+      model: 'clients',    // References the clients table
+      key: 'id'            // References the id field in clients table
+    },
+    field: 'client_id'     // Database column name
+  },
 }, {
   tableName: 'surveys',     // Explicit table name
   timestamps: false,        // Don't auto-create createdAt/updatedAt
@@ -103,6 +112,12 @@ Survey.associate = (models) => {
   Survey.hasMany(models.Result, {
     foreignKey: 'surveyId', // Foreign key in the Result model
     as: 'results', // Alias for the association
+  });
+
+  // Add association with Client model
+  Survey.belongsTo(models.Client, {
+    foreignKey: 'clientId',
+    as: 'client'
   });
 };
 
