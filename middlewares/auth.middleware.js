@@ -1,93 +1,110 @@
-import jwt from 'jsonwebtoken'; // Import JWT library for token verification
-import Client from '../api/client/client.model.js'; 
+import jwt from 'jsonwebtoken';
+import Client from '../api/client/client.model.js';
 
-// Middleware to authenticate regular users
-
+// Middleware for regular user authentication
 export const authenticateUser = (req, res, next) => {
-  // Get token from Authorization header (format: "Bearer <token>")
   const token = req.header('Authorization')?.replace('Bearer ', '');
-
-  // If no token found, immediately deny access
+  
   if (!token) {
-    console.log('🚫 Access attempt with no token');
-    return res.status(401).json({ 
-      message: 'Access denied. Please login first.' 
-    });
+    console.log('🚫 No token provided');
+    return res.status(401).json({ message: 'Access denied. Please login first.' });
   }
 
   try {
-    // Verify the token using our secret key
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Attach the decoded user info to the request object
     req.user = decoded;
-
-    // Helpful debug log (only shown in development)
-    console.log(`✅ User authenticated: ${req.user.email} (ID: ${req.user.userId})`);
-    
-    // Move to the next middleware/route handler
+    console.log(`✅ User auth: ${req.user.email}`);
     next();
-  
   } catch (error) {
-    // Handle different types of JWT errors
-    console.error('❌ Token verification failed:', error.message);
-    
-    let errorMessage = 'Invalid token';
-    if (error.name === 'TokenExpiredError') {
-      errorMessage = 'Token expired. Please login again.';
-    } else if (error.name === 'JsonWebTokenError') {
-      errorMessage = 'Malformed token';
-    }
-
-    return res.status(401).json({ 
-      message: errorMessage 
-    });
+    console.error('❌ Token error:', error.message);
+    const message = error.name === 'TokenExpiredError' 
+      ? 'Token expired. Please login again.' 
+      : 'Invalid token';
+    res.status(401).json({ message });
   }
 };
 
-// Middleware to authenticate ADMIN users only
+// Middleware for admin-only routes
 export const authenticateAdmin = (req, res, next) => {
-  // First, check regular authentication
   authenticateUser(req, res, () => {
-    // If we get here, authenticateUser passed
-    
-    // Check if user has admin privileges (case-insensitive check)
     if (req.user?.role?.toLowerCase() !== 'admin') {
-      console.log(`🚫 Admin access denied for ${req.user.email} (role: ${req.user.role})`);
-      return res.status(403).json({ 
-        message: 'Administrator privileges required.' 
-      });
+      console.log(`🚫 Admin access denied for ${req.user?.email}`);
+      return res.status(403).json({ message: 'Administrator privileges required.' });
     }
-
-    // Helpful debug log
-    console.log(`🔒 Admin access granted to ${req.user.email}`);
-    
-    // User is authenticated AND is admin - proceed
+    console.log(`🔒 Admin access: ${req.user.email}`);
     next();
   });
 };
 
+// Middleware for client authentication
 export const authenticateClient = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const token = req.header('Authorization')?.replace('Bearer ', '');
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token de autenticação ausente' });
+  if (!token) {
+    return res.status(401).json({ message: 'Missing authentication token' });
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const client = await Client.findByPk(decoded.clientId);
     
     if (!client) {
-      return res.status(401).json({ message: 'Cliente não encontrado' });
+      return res.status(401).json({ message: 'Client not found' });
     }
 
     req.client = { id: client.id, companyName: client.companyName };
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Token inválido ou expirado' });
+    res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
 
+// Middleware for admin OR client authentication
+export const authenticateAdminOrClient = async (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Admin verification
+    if (decoded.role === 'admin') {
+      req.user = { 
+        id: decoded.userId, 
+        role: decoded.role,
+        email: decoded.email 
+      };
+      console.log(`🔑 Admin access: ${decoded.email}`);
+      return next();
+    }
+    
+    // Client verification
+    if (decoded.clientId) {
+      const client = await Client.findByPk(decoded.clientId);
+      if (!client) {
+        return res.status(401).json({ message: 'Client not found' });
+      }
+      
+      req.client = { 
+        id: client.id, 
+        companyName: client.companyName 
+      };
+      console.log(`🔑 Client access: ${client.companyName}`);
+      return next();
+    }
+
+    throw new Error('Invalid token type');
+    
+  } catch (error) {
+    console.error('Auth error:', error.message);
+    const status = error.message.includes('expired') ? 401 : 403;
+    res.status(status).json({ 
+      message: error.message.includes('expired') 
+        ? 'Token expired' 
+        : 'Authentication failed' 
+    });
+  }
+};

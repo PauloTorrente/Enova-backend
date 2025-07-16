@@ -10,111 +10,147 @@ export const generateSurveyToken = () => {
 };
 
 // Function to create a new survey
-export const createSurvey = async (surveyData) => {
+export const createSurvey = async (surveyData, clientId = null) => {
   try {
-    // Generate a unique token and assign it to the accessToken field
+    // Generate a unique token for survey access
     surveyData.accessToken = generateSurveyToken();
+    
+    // If clientId is provided, associate survey with the client
+    if (clientId) {
+      surveyData.clientId = clientId;
+      console.log(`Creating survey for client ID: ${clientId}`);
+    }
 
-    // Create the survey in the database using the provided data (including the token)
+    // Create the survey in database with all provided data
     const survey = await Survey.create(surveyData);
+    
+    // Log success in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Survey created successfully:', survey.id);
+    }
+    
     return survey;
   } catch (error) {
-    // Throw an error if something goes wrong during survey creation
+    console.error('Survey creation error:', error);
     throw new Error('Error creating survey: ' + error.message);
   }
 };
 
-// Function to get active surveys
-export const getActiveSurveys = async () => {
+// Function to get active surveys (optionally filtered by client)
+export const getActiveSurveys = async (clientId = null) => {
   try {
-    console.log('Fetching active surveys from database...'); 
-    const surveys = await Survey.findAll({
-      where: {
-        status: 'active',
-        expirationTime: {
-          [Op.gt]: new Date(),
-        },
-      },
-    });
-    console.log('Active surveys found:', surveys);
+    // Prepare base query conditions
+    const whereConditions = {
+      status: 'active',
+      expirationTime: { [Op.gt]: new Date() }
+    };
+
+    // Add client filter if clientId is provided
+    if (clientId) {
+      whereConditions.clientId = clientId;
+      console.log(`Fetching active surveys for client ID: ${clientId}`);
+    }
+
+    // Execute query
+    const surveys = await Survey.findAll({ where: whereConditions });
+    
     return surveys;
   } catch (error) {
-    console.error('Error fetching active surveys:', error); 
+    console.error('Error fetching active surveys:', error);
     throw new Error('Error fetching active surveys: ' + error.message);
   }
 };
 
-// Function to get a survey by access token
-export const getSurveyByAccessToken = async (accessToken) => {
+// Function to get a survey by access token (with optional client verification)
+export const getSurveyByAccessToken = async (accessToken, clientId = null) => {
   try {
-    const survey = await Survey.findOne({
-      where: {
-        accessToken: accessToken, // Filter by accessToken
-      },
-    });
-
-    if (!survey) {
-      return null; // Return null if survey is not found
+    // Prepare query conditions
+    const whereConditions = { accessToken };
+    
+    // Add client verification if clientId is provided
+    if (clientId) {
+      whereConditions.clientId = clientId;
+      console.log(`Verifying survey ownership for client ID: ${clientId}`);
     }
 
-    return survey; // Return the found survey
+    // Find the survey
+    const survey = await Survey.findOne({ where: whereConditions });
+
+    if (!survey) {
+      console.log('Survey not found or access denied');
+      return null;
+    }
+
+    return survey;
   } catch (error) {
+    console.error('Error fetching survey by token:', error);
     throw new Error('Error fetching survey by access token: ' + error.message);
   }
 };
 
-// Function to save the user's response to a survey
+// Function to save user responses to a survey
 export const saveResponse = async (surveyId, userId, response) => {
   try {
+    // Verify survey exists
     const survey = await Survey.findByPk(surveyId);
     if (!survey) {
       throw new Error('Survey not found');
     }
 
-    // Check if user has already responded to this survey
+    // Check for duplicate responses
     const existingResponse = await Result.findOne({
-      where: {
-        surveyId,
-        userId
-      }
+      where: { surveyId, userId }
     });
 
     if (existingResponse) {
       throw new Error('User has already responded to this survey');
     }
 
-    // Check that response contains valid question-answer pairs
+    // Validate response format
     if (!Array.isArray(response) || response.some(item => !item.questionId || !item.answer)) {
-      throw new Error('Response contains invalid data (questionId or answer missing)');
+      throw new Error('Invalid response format: questionId and answer required');
     }
 
-    // Iterate over the response and save each question-answer pair separately
-    const resultEntries = response.map(item => {
-      return {
-        surveyId,
-        userId,
-        question: item.question,  // Add the question text here
-        answer: item.answer,      // Store the answer (could be an object for multiple choice)
-      };
-    });
+    // Prepare response records
+    const resultEntries = response.map(item => ({
+      surveyId,
+      userId,
+      question: item.question,
+      answer: item.answer
+    }));
 
-    // Save all the results
+    // Save all responses
     const results = await Result.bulkCreate(resultEntries);
+    console.log(`Saved ${results.length} responses for survey ${surveyId}`);
+    
     return results;
   } catch (error) {
+    console.error('Error saving responses:', error);
     throw new Error('Error saving response: ' + error.message);
   }
 };
 
-// Function to delete a survey
-export const deleteSurvey = async (surveyId) => {
+// Function to delete a survey (with client verification)
+export const deleteSurvey = async (surveyId, clientId = null) => {
   try {
+    // Find the survey
     const survey = await Survey.findByPk(surveyId);
+    
     if (!survey) {
       throw new Error('Survey not found');
     }
+
+    // Verify client ownership if clientId is provided
+    if (clientId && survey.clientId !== clientId) {
+      throw new Error('You do not have permission to delete this survey');
+    }
+
+    // Delete the survey
     await survey.destroy();
+    console.log(`Survey ${surveyId} deleted successfully`);
+    
   } catch (error) {
+    console.error('Error deleting survey:', error);
     throw new Error('Error deleting survey: ' + error.message);
   }
 };
@@ -126,6 +162,7 @@ const surveysService = {
   getSurveyByAccessToken,
   saveResponse,
   deleteSurvey,
+  generateSurveyToken
 };
 
 export default surveysService;
