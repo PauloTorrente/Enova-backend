@@ -39,6 +39,19 @@ const Survey = sequelize.define('Survey', {
           // Required fields for every question
           if (!question.type || !question.question || !question.questionId) {
             throw new Error('Each question must have type, question, and questionId');
+          }         
+          // Validation for multiple-choice questions
+          if (question.type === 'multiple') {
+            // Validate if multiple selections are allowed
+            if (question.multipleSelections) {
+              if (!Array.isArray(question.options) || question.options.length < 1) {
+                throw new Error('Multiple selection questions require an options array with at least one option');
+              }
+            }
+            // Validate that it has defined options (even for single selection)
+            if (!question.options || !Array.isArray(question.options)) {
+              throw new Error('Multiple choice questions must have an options array');
+            }
           }
           
           // If image exists, validate it's a string (URL)
@@ -102,6 +115,15 @@ const Survey = sequelize.define('Survey', {
     },
     field: 'client_id'     // Database column name
   },
+  responseLimit: {
+    type: DataTypes.INTEGER,
+    allowNull: true,       // Can be null (unlimited responses)
+    defaultValue: null,    // Default value is null (unlimited)
+    field: 'response_limit', // Database column name
+    validate: {
+      min: 1              // Minimum value if not null
+    }
+  }
 }, {
   tableName: 'surveys',     // Explicit table name
   timestamps: false,        // Don't auto-create createdAt/updatedAt

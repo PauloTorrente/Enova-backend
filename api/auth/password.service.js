@@ -105,7 +105,7 @@ export const resetPassword = async (token, newPassword) => {
       console.log(`Password reset successful for user ${user.email}`);
     }
 
-    return { message: 'Password has been successfully reset' };
+    return { message: 'Haz cambiado tu contraseña' };
   } catch (error) {
     console.error('Error resetting password:', error);
     throw new Error('Failed to reset password');

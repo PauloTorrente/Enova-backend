@@ -7,17 +7,29 @@ export const respondToSurveyByToken = async (req, res) => {
     const { accessToken } = req.query;
     const userId = req.user?.userId;
 
+    // Validate required access token
     if (!accessToken) {
       console.error('❌ Access token missing');
       return res.status(400).json({ message: 'Access token is required' });
     }
 
+    // Find survey by token
     const survey = await Survey.findOne({ where: { accessToken } });
     if (!survey) {
       console.error('❌ Survey not found');
       return res.status(404).json({ message: 'Survey not found' });
     }
 
+    // Check response limit before processing
+    const responseCount = await Result.count({ where: { surveyId: survey.id } });
+    if (survey.responseLimit !== null && responseCount >= survey.responseLimit) {
+      console.log(`🚫 Survey ${survey.id} reached response limit (${survey.responseLimit})`);
+      return res.status(400).json({ 
+        message: 'This survey has reached the maximum response limit.' 
+      });
+    }
+
+    // Check for duplicate responses from same user
     const existingResponse = await Result.findOne({
       where: { surveyId: survey.id, userId }
     });
@@ -27,16 +39,19 @@ export const respondToSurveyByToken = async (req, res) => {
       return res.status(400).json({ message: 'You have already responded to this survey.' });
     }
 
+    // Validate response format is an array
     const response = req.body;
     if (!Array.isArray(response)) {
       console.error('❌ Invalid response format');
       return res.status(400).json({ message: 'Response should be an array' });
     }
 
+    // Parse survey questions (handle both string and object formats)
     const questions = typeof survey.questions === 'string' 
       ? JSON.parse(survey.questions) 
       : survey.questions;
 
+    // Process each response item with validation
     const resultEntries = response.map(item => {
       const questionObj = questions.find(q => 
         q.questionId === item.questionId || q.id === item.questionId
@@ -45,6 +60,24 @@ export const respondToSurveyByToken = async (req, res) => {
       if (!questionObj) {
         console.error('❌ Question not found:', item.questionId);
         throw new Error(`Question with ID ${item.questionId} not found`);
+      }
+
+      // Validate answer based on question type
+      if (questionObj.type === 'multiple' && questionObj.multipleSelections) {
+        // Multiple selection validation
+        if (!Array.isArray(item.answer)) {
+          throw new Error(`Question ${item.questionId} requires multiple answers`);
+        }
+        item.answer.forEach(ans => {
+          if (!questionObj.options.includes(ans)) {
+            throw new Error(`Invalid option for question ${item.questionId}`);
+          }
+        });
+      } else {
+        // Single selection validation
+        if (!questionObj.options.includes(item.answer)) {
+          throw new Error(`Invalid option for question ${item.questionId}`);
+        }
       }
 
       validateAnswerLength(questionObj, item.answer);
@@ -58,8 +91,9 @@ export const respondToSurveyByToken = async (req, res) => {
       };
     });
 
+    // Save all valid responses
     await Result.bulkCreate(resultEntries);
-    console.log('✅ Survey response recorded');
+    console.log('✅ Survey response recorded successfully');
     return res.status(200).json({ message: 'Response recorded successfully' });
   } catch (error) {
     console.error('❌ Response recording error:', error.message);
@@ -70,6 +104,7 @@ export const respondToSurveyByToken = async (req, res) => {
   }
 };
 
+// Helper function to validate answer length for text questions
 function validateAnswerLength(question, answer) {
   const lengthConfigs = {
     short: { min: 1, max: 100 },

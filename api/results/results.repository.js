@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import Result from './results.model.js'; // Importing the Result model to interact with the database
-import User from '../users/users.model.js'
+import User from '../users/users.model.js';
 
 // Function to save a response to the database
 export const saveResponse = async (surveyId, userId, surveyTitle, question, answer) => {
@@ -8,10 +8,13 @@ export const saveResponse = async (surveyId, userId, surveyTitle, question, answ
     console.log('Starting saveResponse...'); // Debugging log
     console.log(`surveyId: ${surveyId}, userId: ${userId}, surveyTitle: ${surveyTitle}, question: ${question}, answer: ${answer}`); // Debugging log
 
-    // Check if the surveyId, userId, surveyTitle, question, and answer are valid
+    // Check if all required fields are provided
     if (!surveyId || !userId || !surveyTitle || !question || !answer) {
       throw new Error('All fields (surveyId, userId, surveyTitle, question, and answer) are required');
     }
+
+    // For multiple-choice questions that allow multiple selections, we need to handle array answers
+    const formattedAnswer = Array.isArray(answer) ? JSON.stringify(answer) : answer;
 
     // Creating a new response entry in the Result model
     const newResult = await Result.create({
@@ -19,7 +22,7 @@ export const saveResponse = async (surveyId, userId, surveyTitle, question, answ
       userId, // Linking the response to the user
       surveyTitle, // Storing the survey title
       question, // The specific question being answered
-      answer, // The answer provided by the user
+      answer: formattedAnswer, // The answer provided by the user (could be string or stringified array)
     });
 
     console.log('Response saved successfully:', newResult); // Debugging log
@@ -46,10 +49,17 @@ export const getResponsesBySurvey = async (surveyId) => {
       where: {
         surveyId, // Only get results that match the specific survey
       },
+      raw: true // Get plain objects instead of model instances
     });
 
-    console.log(`Found ${responses.length} responses for surveyId: ${surveyId}`); // Debugging log
-    return responses; // Returning the list of responses
+    // Parse JSON answers back to arrays if they were stringified
+    const parsedResponses = responses.map(r => ({
+      ...r,
+      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+    }));
+
+    console.log(`Found ${parsedResponses.length} responses for surveyId: ${surveyId}`); // Debugging log
+    return parsedResponses; // Returning the list of responses
   } catch (error) {
     console.error('Error in getResponsesBySurvey:', error.message); // Debugging log
     throw new Error('Error fetching responses for survey: ' + error.message);
@@ -72,10 +82,17 @@ export const getUserResponses = async (userId) => {
       where: {
         userId, // Only get results that belong to the specific user
       },
+      raw: true // Get plain objects instead of model instances
     });
 
-    console.log(`Found ${responses.length} responses for userId: ${userId}`); // Debugging log
-    return responses; // Returning the list of user responses
+    // Parse JSON answers back to arrays if they were stringified
+    const parsedResponses = responses.map(r => ({
+      ...r,
+      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+    }));
+
+    console.log(`Found ${parsedResponses.length} responses for userId: ${userId}`); // Debugging log
+    return parsedResponses; // Returning the list of user responses
   } catch (error) {
     console.error('Error in getUserResponses:', error.message); // Debugging log
     throw new Error('Error fetching responses for user: ' + error.message);
@@ -99,25 +116,43 @@ export const getResponsesByQuestion = async (surveyId, question) => {
         surveyId, // The survey to which the question belongs
         question, // The specific question being answered
       },
+      raw: true // Get plain objects instead of model instances
     });
 
-    console.log(`Found ${responses.length} responses for surveyId: ${surveyId}, question: ${question}`); // Debugging log
-    return responses; // Returning the list of responses for the specific question
+    // Parse JSON answers back to arrays if they were stringified
+    const parsedResponses = responses.map(r => ({
+      ...r,
+      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+    }));
+
+    console.log(`Found ${parsedResponses.length} responses for surveyId: ${surveyId}, question: ${question}`); // Debugging log
+    return parsedResponses; // Returning the list of responses for the specific question
   } catch (error) {
     console.error('Error in getResponsesByQuestion:', error.message); // Debugging log
     throw new Error('Error fetching responses for question: ' + error.message);
   }
 };
 
+// Function to get survey responses with associated user details
 export const getSurveyResponsesWithUserDetails = async (surveyId) => {
   try {
-    return await Result.findAll({
+    // Fetch responses including user information
+    const responses = await Result.findAll({
       where: { surveyId },
       include: [{
-        model: User, // Importe o modelo User no topo
+        model: User, // User model imported at the top
         attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age']
-      }]
+      }],
+      raw: true // Get plain objects instead of model instances
     });
+
+    // Parse JSON answers back to arrays if they were stringified
+    const parsedResponses = responses.map(r => ({
+      ...r,
+      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+    }));
+
+    return parsedResponses;
   } catch (error) {
     throw new Error('Error fetching responses with user details: ' + error.message);
   }
@@ -129,6 +164,7 @@ const resultsRepository = {
   getResponsesBySurvey,
   getUserResponses,
   getResponsesByQuestion,
+  getSurveyResponsesWithUserDetails
 };
 
 export default resultsRepository;

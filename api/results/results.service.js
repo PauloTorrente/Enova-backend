@@ -1,68 +1,71 @@
-import Result from './results.model.js'; // Importing the Result model
-import Survey from '../surveys/surveys.model.js'; // Importing the Survey model to check the survey details
-import * as resultsRepository from './results.repository.js'; //Importing to see each user's answer
-import User from '../users/users.model.js';//Importing the users information
-import { Op } from 'sequelize'; // Importing Sequelize operators to perform various query conditions
-import { sequelize } from '../../config/database.js'; //Import the database
+import Result from './results.model.js'; // Importing the Result model to interact with database
+import Survey from '../surveys/surveys.model.js'; // Importing Survey model for survey validation
+import * as resultsRepository from './results.repository.js'; // Importing repository functions
+import User from '../users/users.model.js'; // Importing User model for user associations
+import { Op } from 'sequelize'; // Importing Sequelize operators for complex queries
+import { sequelize } from '../../config/database.js'; // Importing database connection
 
-// Function to check if the survey exists
+// Helper function to verify survey exists in database
 const checkSurveyExistence = async (surveyId) => {
-  console.log('Checking survey existence...'); // Debugging log
+  console.log('Checking survey existence...'); // Debug log
   const survey = await Survey.findByPk(surveyId);
   if (!survey) {
-    console.log('Survey not found'); // Debugging log
+    console.log('Survey not found'); // Error logging
     throw new Error('Survey not found');
   }
-  console.log('Survey found:', survey); // Debugging log
+  console.log('Survey found:', survey); // Success log
   return survey;
 };
 
-// Function to save a response for a user
+// Modified function to save survey responses (now handles multiple choice answers)
 export const saveResponse = async (surveyId, userId, surveyTitle, question, answer) => {
   try {
-    console.log('Starting saveResponse...'); // Debugging log
-    console.log('Parameters:', { surveyId, userId, surveyTitle, question, answer }); // Debugging log
-
-    // Save the user's answer in the 'results' table
+    console.log('Starting saveResponse...'); // Debug log
+    console.log('Parameters:', { surveyId, userId, surveyTitle, question, answer }); // Input logging
+    
+    // Handle multiple choice answers (convert array to JSON string)
+    const formattedAnswer = Array.isArray(answer) ? JSON.stringify(answer) : answer;
+    
+    // Create new database record with response data
     const result = await Result.create({
-      surveyId, // Linking the response to the survey
-      userId, // Linking the response to the user
-      surveyTitle, // Storing the survey title
-      question, // The question asked in the survey
-      answer, // The answer provided by the user
+      surveyId, // ID of the survey being answered
+      userId, // ID of user submitting response
+      surveyTitle, // Title of survey for reporting
+      question, // The question text
+      answer: formattedAnswer // Processed answer (string or JSON)
     });
 
-    console.log('Response saved successfully:', result); // Debugging log
-    return result; // Return the saved response
+    console.log('Response saved successfully:', result); // Success log
+    return result; // Return created record
   } catch (error) {
-    console.error('Error saving response:', error); // Debugging log
-    throw new Error('Error saving response: ' + error.message);
+    console.error('Error saving response:', error); // Error logging
+    throw new Error('Error saving response: ' + error.message); // Re-throw with context
   }
 };
 
-// Function to get all responses for a particular survey
+// Function to fetch all responses for a specific survey
 export const getResponsesBySurvey = async (surveyId) => {
   try {
-    console.log('Starting getResponsesBySurvey...'); // Debugging log
-    console.log('Survey ID:', surveyId); // Debugging log
+    console.log('Starting getResponsesBySurvey...'); // Debug log
+    console.log('Survey ID:', surveyId); // Parameter logging
 
-    // Find all responses linked to a specific survey
+    // Query database for all responses matching survey ID
     const responses = await Result.findAll({
       where: {
-        surveyId: surveyId, // Filter by survey ID
+        surveyId: surveyId, // Filter condition
       },
     });
 
-    console.log('Fetched Responses:', responses); // Debugging log
+    console.log('Fetched Responses:', responses); // Result logging
 
     if (!responses.length) {
-      console.log('No responses found for this survey'); // Debugging log
+      console.log('No responses found for this survey'); // Empty result log
       throw new Error('No responses found for this survey');
     }
 
-    return responses; // Return the list of responses
+    return responses; // Return query results
   } catch (error) {
-    console.error('Error fetching survey responses:', error); // Debugging log
+    console.error('Error fetching survey responses:', error); // Error logging
     throw new Error('Error fetching survey responses: ' + error.message);
   }
 };
@@ -70,86 +73,86 @@ export const getResponsesBySurvey = async (surveyId) => {
 // Function to get all responses from a specific user
 export const getUserResponses = async (userId) => {
   try {
-    console.log('Starting getUserResponses...'); // Debugging log
-    console.log('User ID:', userId); // Debugging log
+    console.log('Starting getUserResponses...'); // Debug log
+    console.log('User ID:', userId); // Parameter logging
 
-    // Find all responses given by a particular user
+    // Query database for responses matching user ID
     const userResponses = await Result.findAll({
       where: {
-        userId: userId, // Filter by user ID
+        userId: userId, // Filter condition
       },
     });
 
-    console.log('Fetched User Responses:', userResponses); // Debugging log
+    console.log('Fetched User Responses:', userResponses); // Result logging
 
     if (!userResponses.length) {
-      console.log('No responses found for this user'); // Debugging log
+      console.log('No responses found for this user'); // Empty result log
       throw new Error('No responses found for this user');
     }
 
-    return userResponses; // Return the list of responses from the user
+    return userResponses; // Return query results
   } catch (error) {
-    console.error('Error fetching user responses:', error); // Debugging log
+    console.error('Error fetching user responses:', error); // Error logging
     throw new Error('Error fetching user responses: ' + error.message);
   }
 };
 
-// Function to get responses for a specific question from a survey
+// Function to get responses for specific question in survey
 export const getResponsesByQuestion = async (surveyId, question) => {
   try {
-    console.log('Starting getResponsesByQuestion...'); // Debugging log
-    console.log('Parameters:', { surveyId, question }); // Debugging log
+    console.log('Starting getResponsesByQuestion...'); // Debug log
+    console.log('Parameters:', { surveyId, question }); // Parameter logging
 
-    // Find all responses for a specific survey and question
+    // Query database for responses matching survey ID and question text
     const responses = await Result.findAll({
       where: {
-        surveyId: surveyId, // Filter by survey ID
-        question: question, // Filter by the question
+        surveyId: surveyId, // Survey filter
+        question: question, // Question filter
       },
     });
 
-    console.log('Fetched Responses for Question:', responses); // Debugging log
+    console.log('Fetched Responses for Question:', responses); // Result logging
 
     if (!responses.length) {
-      console.log('No responses found for this question'); // Debugging log
+      console.log('No responses found for this question'); // Empty result log
       throw new Error('No responses found for this question');
     }
 
-    return responses; // Return the responses for the specific question
+    return responses; // Return query results
   } catch (error) {
-    console.error('Error fetching responses for the question:', error); // Debugging log
+    console.error('Error fetching responses for the question:', error); // Error logging
     throw new Error('Error fetching responses for the question: ' + error.message);
   }
 };
 
-// Function to export responses to Excel
+// Function to format responses for Excel export
 export const exportResponsesToExcel = async (surveyId) => {
   const responses = await getResponsesBySurvey(surveyId);
   return responses.map(r => ({
-    ...r.get({ plain: true }),
-    answer: r.answer.replace(/^"(.*)"$/, '$1') // Limpa aspas
+    ...r.get({ plain: true }), // Convert Sequelize instance to plain object
+    answer: r.answer.replace(/^"(.*)"$/, '$1') // Clean quote formatting
   }));
 };
 
-// This is like a middleman between controller and repository
+// Function to get responses with associated user demographic data
 export const getSurveyResponsesWithUserDetails = async (surveyId) => {
   try {
     console.log(`[DEBUG] Fetching responses with user details for survey: ${surveyId}`);
     
-    // Verify User model is properly imported
+    // Safety check for model availability
     if (!User) {
       console.error('[ERROR] User model is not imported properly');
       throw new Error('User model not available');
     }
     
-    // Log sequelize models to verify associations
-    console.log('[DEBUG] Sequelize models:', sequelize.models);
+    console.log('[DEBUG] Sequelize models:', sequelize.models); // Debug output
     
+    // Query with joined user data
     const responses = await Result.findAll({
       where: { surveyId },
       include: [{
         model: User,
-        as: 'user', // Must match the association alias
+        as: 'user', // Association alias
         attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age']
       }]
     });
@@ -162,7 +165,7 @@ export const getSurveyResponsesWithUserDetails = async (surveyId) => {
   }
 };
 
-// Exporting the results service for use in other parts of the application
+// Export all service functions as module
 const resultsService = {
   saveResponse,
   getResponsesBySurvey,

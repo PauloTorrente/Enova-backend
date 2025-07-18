@@ -21,6 +21,12 @@ export const createSurvey = async (surveyData, clientId = null) => {
       console.log(`Creating survey for client ID: ${clientId}`);
     }
 
+    // Validate response limit if provided (must be between 1 and 1000)
+    if (surveyData.responseLimit && 
+        (surveyData.responseLimit < 1 || surveyData.responseLimit > 1000)) {
+      throw new Error('Response limit must be between 1 and 1000');
+    }
+
     // Create the survey in database with all provided data
     const survey = await Survey.create(surveyData);
     
@@ -166,3 +172,4 @@ const surveysService = {
 };
 
 export default surveysService;
+  
