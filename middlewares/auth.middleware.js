@@ -71,10 +71,10 @@ export const authenticateAdminOrClient = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Admin verification
-    if (decoded.role === 'admin') {
+    if (decoded.role?.toLowerCase() === 'admin') {
       req.user = { 
         id: decoded.userId, 
-        role: decoded.role,
+        role: decoded.role.toLowerCase(),
         email: decoded.email 
       };
       console.log(`🔑 Admin access: ${decoded.email}`);

@@ -63,23 +63,36 @@ export const respondToSurveyByToken = async (req, res) => {
       }
 
       // Validate answer based on question type
-      if (questionObj.type === 'multiple' && questionObj.multipleSelections) {
-        // Multiple selection validation
-        if (!Array.isArray(item.answer)) {
-          throw new Error(`Question ${item.questionId} requires multiple answers`);
-        }
-        item.answer.forEach(ans => {
-          if (!questionObj.options.includes(ans)) {
-            throw new Error(`Invalid option for question ${item.questionId}`);
+      if (questionObj.type === 'multiple') {
+        // Multiple selection validation (now checking for "yes" instead of boolean)
+        if (questionObj.multipleSelections === 'yes') {
+          if (!Array.isArray(item.answer)) {
+            throw new Error(`Question ${item.questionId} requires multiple answers (array)`);
           }
-        });
+          // Validate each selected option exists in question options
+          item.answer.forEach(ans => {
+            if (!questionObj.options.includes(ans)) {
+              throw new Error(`Invalid option "${ans}" for question ${item.questionId}`);
+            }
+          });
+        } 
+        // Single selection validation (multipleSelections === 'no')
+        else {
+          if (Array.isArray(item.answer)) {
+            throw new Error(`Question ${item.questionId} only accepts a single answer`);
+          }
+          if (!questionObj.options.includes(item.answer)) {
+            throw new Error(`Invalid option "${item.answer}" for question ${item.questionId}`);
+          }
+        }
       } else {
-        // Single selection validation
-        if (!questionObj.options.includes(item.answer)) {
-          throw new Error(`Invalid option for question ${item.questionId}`);
+        // Non-multiple question validation (text, etc.)
+        if (Array.isArray(item.answer)) {
+          throw new Error(`Question ${item.questionId} does not accept multiple answers`);
         }
       }
 
+      // Validate answer length for text questions
       validateAnswerLength(questionObj, item.answer);
 
       return {

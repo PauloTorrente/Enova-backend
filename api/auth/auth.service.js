@@ -119,7 +119,7 @@ export const login = async (email, password) => {
 
   // Generate JWT token for authentication
   const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
+    { userId: user.id, email: user.email, role: user.role.toLowerCase() },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );

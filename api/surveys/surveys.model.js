@@ -39,32 +39,50 @@ const Survey = sequelize.define('Survey', {
           // Required fields for every question
           if (!question.type || !question.question || !question.questionId) {
             throw new Error('Each question must have type, question, and questionId');
-          }         
-          // Validation for multiple-choice questions
+          }
+
+          // Enhanced validation for multiple-choice questions
           if (question.type === 'multiple') {
-            // Validate if multiple selections are allowed
-            if (question.multipleSelections) {
-              if (!Array.isArray(question.options) || question.options.length < 1) {
-                throw new Error('Multiple selection questions require an options array with at least one option');
-              }
+            // Validate multipleSelections is either 'yes' or 'no'
+            if (question.multipleSelections && !['yes', 'no'].includes(question.multipleSelections)) {
+              throw new Error('multipleSelections must be either "yes" or "no"');
             }
-            // Validate that it has defined options (even for single selection)
+            
+            // Default to 'no' if not specified
+            if (!question.multipleSelections) {
+              question.multipleSelections = 'no';
+            }
+
+            // Validate options array exists and has at least one option
             if (!question.options || !Array.isArray(question.options)) {
               throw new Error('Multiple choice questions must have an options array');
             }
+
+            // Additional validation for multiple selection questions ('yes')
+            if (question.multipleSelections === 'yes') {
+              if (question.options.length < 2) {
+                throw new Error('Multiple selection questions require at least two options');
+              }
+            }
+
+            // Validate all options are strings
+            question.options.forEach(option => {
+              if (typeof option !== 'string') {
+                throw new Error('All options must be strings');
+              }
+            });
           }
           
-          // If image exists, validate it's a string (URL)
+          // Validate media fields if present
           if (question.imagem && typeof question.imagem !== 'string') {
             throw new Error('Image must be a string (URL)');
           }
           
-          // If video exists, validate it's a string (URL)
           if (question.video && typeof question.video !== 'string') {
             throw new Error('Video must be a string (URL)');
           }
 
-          // Validate answerLength if provided
+          // Validate answerLength constraints
           if (question.answerLength) {
             if (typeof question.answerLength !== 'string') {
               throw new Error('answerLength must be a string');
@@ -75,7 +93,7 @@ const Survey = sequelize.define('Survey', {
               throw new Error(`Invalid answerLength. Allowed values: ${Object.keys(allowedLengths).join(', ')}`);
             }
 
-            // For text questions, validate min/max constraints if options are provided
+            // Additional validation for text questions with length constraints
             if (question.type === 'text' && question.options) {
               const options = Array.isArray(question.options) ? question.options : [];
               options.forEach(option => {
@@ -133,7 +151,7 @@ const Survey = sequelize.define('Survey', {
 Survey.associate = (models) => {
   Survey.hasMany(models.Result, {
     foreignKey: 'surveyId', // Foreign key in the Result model
-    as: 'results', // Alias for the association
+    as: 'results',          // Alias for the association
   });
 
   // Add association with Client model
