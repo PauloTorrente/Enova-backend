@@ -22,6 +22,14 @@ const Client = sequelize.define('Client', {
     },
     field: 'contact_email'
   },
+  phoneNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      is: /^\+?[\d\s\-()]+$/ 
+    },
+    field: 'phone_number'
+  },
   password: {
     type: DataTypes.STRING,
     allowNull: false,
