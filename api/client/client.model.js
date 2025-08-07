@@ -13,6 +13,11 @@ const Client = sequelize.define('Client', {
     unique: true,
     field: 'company_name'
   },
+  contactName: { 
+    type: DataTypes.STRING,
+    allowNull: false,
+    field: 'contact_name'
+  },
   contactEmail: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -34,6 +39,11 @@ const Client = sequelize.define('Client', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+    industry: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    field: 'industry'
+  },
   idIntentification: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -51,7 +61,7 @@ const Client = sequelize.define('Client', {
   },
 }, {
   tableName: 'clients',
-  timestamps: false,
+  timestamps: true,
 });
 
 export default Client;
