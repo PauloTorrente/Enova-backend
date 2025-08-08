@@ -39,7 +39,7 @@ const Client = sequelize.define('Client', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-    industry: {
+  industry: {
     type: DataTypes.STRING,
     allowNull: false,
     field: 'industry'
@@ -62,6 +62,9 @@ const Client = sequelize.define('Client', {
 }, {
   tableName: 'clients',
   timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  underscored: true
 });
 
 export default Client;
