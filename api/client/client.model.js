@@ -67,4 +67,48 @@ const Client = sequelize.define('Client', {
   underscored: true
 });
 
+// Métodos diretamente no Model
+Client.register = async function(clientData) {
+  const { companyName, contactName, contactEmail, phone, password, industry } = clientData;
+  
+  const existingClient = await this.findOne({ where: { contactEmail } });
+  if (existingClient) throw new Error('Email já registrado');
+
+  const existingCompany = await this.findOne({ where: { companyName } });
+  if (existingCompany) throw new Error('Empresa já registrada');
+
+  const hashedPassword = await bcryptjs.hash(password, 10);
+  const confirmationToken = crypto.randomBytes(20).toString('hex');
+
+  return await this.create({
+    companyName,
+    contactName,
+    contactEmail,
+    phoneNumber: phone,
+    password: hashedPassword,
+    industry,
+    confirmationToken,
+    isConfirmed: false
+  });
+};
+
+Client.confirmAccount = async function(token) {
+  const client = await this.findOne({ where: { confirmationToken: token } });
+  if (!client) throw new Error('Token inválido ou expirado');
+
+  client.isConfirmed = true;
+  client.confirmationToken = null;
+  return await client.save();
+};
+
+Client.login = async function(contactEmail, password) {
+  const client = await this.findOne({ where: { contactEmail } });
+  if (!client || !client.isConfirmed) throw new Error('Credenciais inválidas');
+
+  const isPasswordValid = await bcryptjs.compare(password, client.password);
+  if (!isPasswordValid) throw new Error('Credenciais inválidas');
+
+  return client;
+};
+
 export default Client;
