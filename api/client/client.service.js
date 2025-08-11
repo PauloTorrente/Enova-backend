@@ -91,38 +91,56 @@ export const confirmClient = async (token) => {
 
 // Client login with JWT generation
 export const loginClient = async (contactEmail, password) => {
-  console.log('[SERVICE] Tentativa de login com email:', contactEmail);
+  console.log('[DEBUG] loginClient - Iniciando processo de login');
+  console.log('[DEBUG] loginClient - Email recebido:', contactEmail);
   
   try {
-    console.log('[SERVICE] Buscando cliente no banco...');
+    console.log('[DEBUG] loginClient - Buscando cliente no banco de dados');
     const client = await Client.findOne({ where: { contactEmail } });
-    if (!client) throw new Error('Invalid credentials');
+    
+    if (!client) {
+      console.log('[DEBUG] loginClient - Cliente não encontrado para o email:', contactEmail);
+      throw new Error('Invalid credentials');
+    }
 
-    console.log('[SERVICE] Verificando se conta está confirmada...');
-    if (!client.isConfirmed) throw new Error('Please confirm your email first');
+    console.log('[DEBUG] loginClient - Verificando status de confirmação da conta');
+    if (!client.isConfirmed) {
+      console.log('[DEBUG] loginClient - Conta não confirmada para o cliente ID:', client.id);
+      throw new Error('Please confirm your email first');
+    }
 
-    console.log('[SERVICE] Validando senha...');
+    console.log('[DEBUG] loginClient - Comparando hash da senha');
     const isPasswordValid = await bcryptjs.compare(password, client.password);
-    if (!isPasswordValid) throw new Error('Invalid credentials');
+    
+    if (!isPasswordValid) {
+      console.log('[DEBUG] loginClient - Senha inválida para o cliente ID:', client.id);
+      throw new Error('Invalid credentials');
+    }
 
-    console.log('[SERVICE] Gerando tokens JWT...');
+    console.log('[DEBUG] loginClient - Preparando payload do token JWT');
     const tokenPayload = { 
       clientId: client.id,
       email: client.contactEmail,
       role: 'client'
     };
 
+    console.log('[DEBUG] loginClient - Gerando token de acesso');
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    
+    console.log('[DEBUG] loginClient - Gerando refresh token');
     const refreshToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     const { password: _, ...clientData } = client.toJSON();
+    
+    console.log('[DEBUG] loginClient - Login bem-sucedido para o cliente ID:', client.id);
     return {
       ...clientData,
       token,
       refreshToken
     };
   } catch (error) {
-    console.error('[SERVICE] Erro durante login:', error);
+    console.error('[DEBUG] loginClient - Erro durante o processo de login:', error.message);
+    console.error('[DEBUG] loginClient - Stack trace:', error.stack);
     throw error;
   }
 };

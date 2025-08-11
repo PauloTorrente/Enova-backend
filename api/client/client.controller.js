@@ -59,19 +59,62 @@ export const confirm = async (req, res) => {
 // Login do cliente empresarial
 export const login = async (req, res) => {
   const { contactEmail, password } = req.body;
-  console.log('[CONTROLLER] Tentativa de login para:', contactEmail);
+  console.log('[CONTROLLER] Tentativa de login iniciada', {
+    email: contactEmail,
+    timestamp: new Date().toISOString(),
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  });
 
   try {
-    console.log('[CONTROLLER] Validando credenciais...');
+    console.log('[CONTROLLER] Validando formato do email...');
+    if (!contactEmail || !password) {
+      console.error('[CONTROLLER] Credenciais ausentes', {
+        emailProvided: !!contactEmail,
+        passwordProvided: !!password
+      });
+      throw new Error('Email e senha são obrigatórios');
+    }
+
+    console.log('[CONTROLLER] Chamando service de login...');
+    const startTime = process.hrtime();
     const client = await clientService.loginClient(contactEmail, password);
-    console.log('[CONTROLLER] Login bem-sucedido para ID:', client.id);
-    res.json(client);
-  } catch (error) {
-    console.error('[CONTROLLER] Falha no login:', {
-      email: contactEmail,
-      error: error.message
+    const hrtime = process.hrtime(startTime);
+    const executionTime = hrtime[0] * 1000 + hrtime[1] / 1000000;
+
+    console.log('[CONTROLLER] Login bem-sucedido', {
+      clientId: client.id,
+      email: client.contactEmail,
+      executionTime: `${executionTime.toFixed(2)}ms`,
+      timestamp: new Date().toISOString()
     });
-    res.status(401).json({ message: error.message });
+
+    res.json({
+      ...client,
+      _debug: {
+        timestamp: new Date().toISOString(),
+        executionTime
+      }
+    });
+  } catch (error) {
+    console.error('[CONTROLLER] Falha no login', {
+      email: contactEmail,
+      error: {
+        message: error.message,
+        stack: error.stack,
+        type: error.constructor.name
+      },
+      timestamp: new Date().toISOString(),
+      statusCode: error.statusCode || 401
+    });
+
+    res.status(error.statusCode || 401).json({ 
+      message: error.message,
+      _debug: {
+        timestamp: new Date().toISOString(),
+        errorType: error.constructor.name
+      }
+    });
   }
 };
 
