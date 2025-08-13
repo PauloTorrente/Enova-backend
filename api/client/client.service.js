@@ -69,7 +69,7 @@ export const registerClient = async (clientData) => {
   }
 };
 
-// Confirm client account using token
+// Confirm client account using token and generate JWT tokens
 export const confirmClient = async (token) => {
   console.log('[SERVICE] Confirmando conta com token:', token);
   
@@ -81,8 +81,25 @@ export const confirmClient = async (token) => {
     client.isConfirmed = true;
     client.confirmationToken = null;
     await client.save();
+
+    // Generate JWT tokens after confirmation
+    console.log('[SERVICE] Gerando tokens JWT para o cliente ID:', client.id);
+    const tokenPayload = { 
+      clientId: client.id,
+      email: client.contactEmail,
+      role: 'client'
+    };
     
-    return client;
+    const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    const { password: _, ...clientData } = client.toJSON();
+    
+    return {
+      client: clientData,
+      accessToken,
+      refreshToken
+    };
   } catch (error) {
     console.error('[SERVICE] Erro ao confirmar conta:', error);
     throw error;

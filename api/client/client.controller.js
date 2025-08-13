@@ -47,11 +47,34 @@ export const confirm = async (req, res) => {
 
   try {
     console.log('[CONTROLLER] Confirmando conta com token...');
-    await clientService.confirmClient(token);
-    console.log('[CONTROLLER] Conta confirmada com sucesso');
-    res.json({ message: 'Conta empresarial confirmada com sucesso!' });
+    const { 
+      client, 
+      accessToken, 
+      refreshToken 
+    } = await clientService.confirmClient(token);
+
+    console.log('[CONTROLLER] Conta confirmada com sucesso. Tokens gerados:', {
+      clientId: client.id,
+      tokensGenerated: !!accessToken && !!refreshToken
+    });
+
+    res.json({ 
+      message: 'Conta empresarial confirmada com sucesso!',
+      accessToken,
+      refreshToken,
+      client: {
+        id: client.id,
+        companyName: client.companyName,
+        contactEmail: client.contactEmail,
+        contactName: client.contactName,
+        industry: client.industry
+      }
+    });
   } catch (error) {
-    console.error('[CONTROLLER] Erro na confirmação:', error.message);
+    console.error('[CONTROLLER] Erro na confirmação:', {
+      message: error.message,
+      stack: error.stack
+    });
     res.status(400).json({ message: error.message });
   }
 };
