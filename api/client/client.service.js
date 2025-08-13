@@ -106,58 +106,221 @@ export const confirmClient = async (token) => {
   }
 };
 
-// Client login with JWT generation
+// Client login with JWT generation (with enhanced debug logging)
 export const loginClient = async (contactEmail, password) => {
-  console.log('[DEBUG] loginClient - Iniciando processo de login');
-  console.log('[DEBUG] loginClient - Email recebido:', contactEmail);
-  
+  const debugLog = {
+    timestamp: new Date().toISOString(),
+    operation: 'client_login',
+    stage: 'init',
+    email: contactEmail,
+    metadata: {
+      passwordLength: password?.length,
+      inputSanitized: {
+        email: contactEmail?.replace(/(.{3}).*@/, '$1***@'), // Ofusca parte do email
+        password: password ? '******' : null
+      }
+    }
+  };
+
+  console.debug('[AUTH_SERVICE] Iniciando processo de login', debugLog);
+
   try {
-    console.log('[DEBUG] loginClient - Buscando cliente no banco de dados');
-    const client = await Client.findOne({ where: { contactEmail } });
-    
+    // STAGE 1: Busca do cliente no banco de dados
+    debugLog.stage = 'db_lookup';
+    debugLog.dbQuery = {
+      startTime: process.hrtime()
+    };
+
+    console.debug('[AUTH_SERVICE] Buscando cliente no banco de dados', debugLog);
+    const client = await Client.findOne({ 
+      where: { contactEmail },
+      attributes: { include: ['password'] } // Garante que a senha seja incluída
+    });
+
+    debugLog.dbQuery.endTime = process.hrtime(debugLog.dbQuery.startTime);
+    debugLog.dbQuery.durationMs = 
+      debugLog.dbQuery.endTime[0] * 1000 + debugLog.dbQuery.endTime[1] / 1000000;
+
     if (!client) {
-      console.log('[DEBUG] loginClient - Cliente não encontrado para o email:', contactEmail);
-      throw new Error('Invalid credentials');
+      debugLog.stage = 'client_not_found';
+      debugLog.error = {
+        code: 'CLIENT_NOT_FOUND',
+        message: 'No client found with provided email'
+      };
+      console.warn('[AUTH_SERVICE] Cliente não encontrado', debugLog);
+      throw new Error('Credenciais inválidas');
     }
 
-    console.log('[DEBUG] loginClient - Verificando status de confirmação da conta');
+    debugLog.client = {
+      id: client.id,
+      isConfirmed: client.isConfirmed,
+      createdAt: client.createdAt,
+      lastLogin: client.lastLogin,
+      loginAttempts: client.loginAttempts || 0
+    };
+
+    // STAGE 2: Verificação de conta confirmada
+    debugLog.stage = 'account_verification';
+    console.debug('[AUTH_SERVICE] Verificando status da conta', debugLog);
+
     if (!client.isConfirmed) {
-      console.log('[DEBUG] loginClient - Conta não confirmada para o cliente ID:', client.id);
-      throw new Error('Please confirm your email first');
+      debugLog.error = {
+        code: 'UNCONFIRMED_ACCOUNT',
+        message: 'Account email not confirmed'
+      };
+      console.warn('[AUTH_SERVICE] Conta não confirmada', debugLog);
+      throw new Error('Por favor, confirme seu email primeiro');
     }
 
-    console.log('[DEBUG] loginClient - Comparando hash da senha');
+    // STAGE 3: Verificação de senha
+    debugLog.stage = 'password_verification';
+    debugLog.passwordVerification = {
+      startTime: process.hrtime(),
+      hashAlgorithm: 'bcryptjs',
+      saltRounds: 10
+    };
+
+    console.debug('[AUTH_SERVICE] Iniciando verificação de senha', {
+      ...debugLog,
+      security: {
+        storedHash: client.password ? `${client.password.substring(0, 10)}...` : null,
+        inputHash: password ? crypto.createHash('sha256').update(password).digest('hex') : null
+      }
+    });
+
     const isPasswordValid = await bcryptjs.compare(password, client.password);
-    
+    debugLog.passwordVerification.endTime = process.hrtime(debugLog.passwordVerification.startTime);
+    debugLog.passwordVerification.durationMs = 
+      debugLog.passwordVerification.endTime[0] * 1000 + 
+      debugLog.passwordVerification.endTime[1] / 1000000;
+    debugLog.passwordVerification.result = isPasswordValid;
+
     if (!isPasswordValid) {
-      console.log('[DEBUG] loginClient - Senha inválida para o cliente ID:', client.id);
-      throw new Error('Invalid credentials');
+      debugLog.error = {
+        code: 'INVALID_PASSWORD',
+        message: 'Password comparison failed'
+      };
+      
+      // Debug avançado para problemas de codificação
+      const encodingTest = {};
+      const testEncodings = ['utf8', 'latin1', 'ascii'];
+      
+      for (const encoding of testEncodings) {
+        const encodedPassword = Buffer.from(password, encoding).toString();
+        encodingTest[encoding] = await bcryptjs.compare(encodedPassword, client.password);
+      }
+      
+      debugLog.encodingTest = encodingTest;
+      console.error('[AUTH_SERVICE] Falha na verificação de senha', debugLog);
+      
+      // Atualizar contador de tentativas falhas
+      await client.update({ 
+        loginAttempts: (client.loginAttempts || 0) + 1,
+        lastFailedAttempt: new Date()
+      });
+      
+      throw new Error('Credenciais inválidas');
     }
 
-    console.log('[DEBUG] loginClient - Preparando payload do token JWT');
+    // STAGE 4: Geração de tokens
+    debugLog.stage = 'token_generation';
+    debugLog.tokenGeneration = {
+      startTime: process.hrtime(),
+      jwtSecretPresent: !!process.env.JWT_SECRET,
+      accessTokenExpiry: '1h',
+      refreshTokenExpiry: '7d'
+    };
+
+    console.debug('[AUTH_SERVICE] Gerando tokens JWT', debugLog);
+    
     const tokenPayload = { 
       clientId: client.id,
       email: client.contactEmail,
-      role: 'client'
+      role: 'client',
+      company: client.companyName
     };
 
-    console.log('[DEBUG] loginClient - Gerando token de acesso');
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
-    
-    console.log('[DEBUG] loginClient - Gerando refresh token');
-    const refreshToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const [token, refreshToken] = await Promise.all([
+      jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' }),
+      jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' })
+    ]);
 
+    debugLog.tokenGeneration.endTime = process.hrtime(debugLog.tokenGeneration.startTime);
+    debugLog.tokenGeneration.durationMs = 
+      debugLog.tokenGeneration.endTime[0] * 1000 + 
+      debugLog.tokenGeneration.endTime[1] / 1000000;
+    debugLog.tokenGeneration.tokens = {
+      accessToken: token.substring(0, 10) + '...',
+      refreshToken: refreshToken.substring(0, 10) + '...'
+    };
+
+    // STAGE 5: Atualização do último login
+    debugLog.stage = 'client_update';
+    await client.update({ 
+      lastLogin: new Date(),
+      loginAttempts: 0 // Resetar tentativas falhas
+    });
+
+    // Preparar resposta
     const { password: _, ...clientData } = client.toJSON();
     
-    console.log('[DEBUG] loginClient - Login bem-sucedido para o cliente ID:', client.id);
+    debugLog.stage = 'complete';
+    debugLog.status = 'success';
+    console.info('[AUTH_SERVICE] Login realizado com sucesso', debugLog);
+
     return {
       ...clientData,
       token,
-      refreshToken
+      refreshToken,
+      _debug: process.env.NODE_ENV === 'development' ? {
+        stages: debugLog.stage,
+        timings: {
+          dbLookup: debugLog.dbQuery.durationMs,
+          passwordVerify: debugLog.passwordVerification.durationMs,
+          tokenGen: debugLog.tokenGeneration.durationMs
+        }
+      } : undefined
     };
+
   } catch (error) {
-    console.error('[DEBUG] loginClient - Erro durante o processo de login:', error.message);
-    console.error('[DEBUG] loginClient - Stack trace:', error.stack);
+    debugLog.stage = 'error_handling';
+    debugLog.status = 'failed';
+    debugLog.error = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 3), // Primeiras 3 linhas do stack
+      code: error.code || 'UNKNOWN_ERROR'
+    };
+
+    // Classificação de erros
+    if (error.message.includes('Credenciais')) {
+      debugLog.error.type = 'AUTH_FAILURE';
+      console.warn('[AUTH_SERVICE] Falha de autenticação', debugLog);
+    } else if (error.message.includes('confirme')) {
+      debugLog.error.type = 'UNCONFIRMED_ACCOUNT';
+      console.warn('[AUTH_SERVICE] Conta não confirmada', debugLog);
+    } else {
+      debugLog.error.type = 'SYSTEM_ERROR';
+      console.error('[AUTH_SERVICE] Erro no processo de login', debugLog);
+    }
+
+    // Adicionar detalhes específicos para erros de JWT
+    if (error.name === 'JsonWebTokenError') {
+      debugLog.jwtError = {
+        secretPresent: !!process.env.JWT_SECRET,
+        secretLength: process.env.JWT_SECRET?.length
+      };
+    }
+
+    // Adicionar detalhes específicos para erros de bcrypt
+    if (error.message.includes('Invalid salt version') || 
+        error.message.includes('data and hash arguments required')) {
+      debugLog.bcryptError = {
+        passwordType: typeof password,
+        hashPattern: client?.password?.substring(0, 10) + '...'
+      };
+    }
+
     throw error;
   }
 };
