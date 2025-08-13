@@ -27,6 +27,7 @@ export const registerClient = async (clientData) => {
 
     console.log('[SERVICE] Gerando hash da senha...');
     const hashedPassword = await bcryptjs.hash(password, 10);
+    console.debug('[REGISTER] Hash gerado:', hashedPassword); // Novo log adicionado
     
     const confirmationToken = crypto.randomBytes(20).toString('hex');
     
@@ -137,6 +138,15 @@ export const loginClient = async (contactEmail, password) => {
       attributes: { include: ['password'] } // Garante que a senha seja incluída
     });
 
+    // NOVO LOG ADICIONADO: Detalhes do cliente encontrado
+    console.debug('[AUTH_SERVICE] Detalhes do cliente encontrado:', {
+      id: client?.id,
+      isConfirmed: client?.isConfirmed,
+      password: client?.password ? 'hash-present' : 'hash-missing',
+      createdAt: client?.createdAt,
+      updatedAt: client?.updatedAt
+    });
+
     debugLog.dbQuery.endTime = process.hrtime(debugLog.dbQuery.startTime);
     debugLog.dbQuery.durationMs = 
       debugLog.dbQuery.endTime[0] * 1000 + debugLog.dbQuery.endTime[1] / 1000000;
@@ -168,7 +178,10 @@ export const loginClient = async (contactEmail, password) => {
         code: 'UNCONFIRMED_ACCOUNT',
         message: 'Account email not confirmed'
       };
-      console.warn('[AUTH_SERVICE] Conta não confirmada', debugLog);
+      console.warn('[AUTH_SERVICE] Conta não confirmada', {
+        ...debugLog,
+        confirmationToken: client.confirmationToken ? 'present' : 'missing'
+      });
       throw new Error('Por favor, confirme seu email primeiro');
     }
 
@@ -180,12 +193,10 @@ export const loginClient = async (contactEmail, password) => {
       saltRounds: 10
     };
 
-    console.debug('[AUTH_SERVICE] Iniciando verificação de senha', {
-      ...debugLog,
-      security: {
-        storedHash: client.password ? `${client.password.substring(0, 10)}...` : null,
-        inputHash: password ? crypto.createHash('sha256').update(password).digest('hex') : null
-      }
+    // NOVO LOG ADICIONADO: Comparação de senha detalhada
+    console.debug('[AUTH_SERVICE] Comparação de senha:', {
+      inputPassword: crypto.createHash('sha256').update(password).digest('hex'),
+      storedPassword: client.password ? `${client.password.substring(0, 10)}...` : 'null'
     });
 
     const isPasswordValid = await bcryptjs.compare(password, client.password);

@@ -1,4 +1,5 @@
 import * as clientService from './client.service.js';
+import crypto from 'crypto';
 
 // Registrar novo cliente empresarial
 export const register = async (req, res) => {
@@ -57,7 +58,6 @@ export const confirm = async (req, res) => {
 };
 
 // Login do cliente empresarial
-// Login do cliente empresarial
 export const login = async (req, res) => {
   // Log inicial com metadados completos da requisição
   console.debug('[AUTH] Iniciando processo de login', {
@@ -107,6 +107,19 @@ export const login = async (req, res) => {
       });
       throw error;
     }
+
+    // DEBUG ADICIONADO: Verificar status da conta antes de tentar login
+    console.debug('[AUTH] Verificando status da conta no banco de dados...');
+    const tempClientCheck = await clientService.getClientByEmail(contactEmail);
+    console.debug('[AUTH] Detalhes da conta recém-criada:', {
+      email: contactEmail,
+      accountStatus: {
+        isConfirmed: tempClientCheck?.isConfirmed,
+        createdAt: tempClientCheck?.createdAt,
+        passwordHash: tempClientCheck?.password ? 'hash-present' : 'hash-missing',
+        confirmationToken: tempClientCheck?.confirmationToken ? 'present' : 'missing'
+      }
+    });
 
     // Início do processo de autenticação
     console.debug('[AUTH] Iniciando autenticação no service', {
@@ -163,7 +176,11 @@ export const login = async (req, res) => {
           'db_query',
           'password_compare',
           'token_generation'
-        ]
+        ],
+        accountStatus: {
+          isConfirmed: tempClientCheck?.isConfirmed,
+          createdAt: tempClientCheck?.createdAt
+        }
       };
     }
 
@@ -186,7 +203,11 @@ export const login = async (req, res) => {
       context: {
         isVerified: error.isVerified,
         isLocked: error.isLocked,
-        attempts: error.attempts
+        attempts: error.attempts,
+        accountStatus: {
+          isConfirmed: error.client?.isConfirmed,
+          exists: !!error.client
+        }
       },
       timestamp: new Date().toISOString()
     };
@@ -214,7 +235,8 @@ export const login = async (req, res) => {
       clientResponse._debug = {
         timestamp: errorLog.timestamp,
         errorType: errorLog.error.type,
-        stack: errorLog.error.stack
+        stack: errorLog.error.stack,
+        accountStatus: errorLog.context.accountStatus
       };
     }
 
