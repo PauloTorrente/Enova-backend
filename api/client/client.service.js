@@ -27,7 +27,7 @@ export const registerClient = async (clientData) => {
 
     console.log('[SERVICE] Gerando hash da senha...');
     const hashedPassword = await bcryptjs.hash(password, 10);
-    console.debug('[REGISTER] Hash gerado:', hashedPassword); // Novo log adicionado
+    console.debug('[REGISTER] Hash gerado:', hashedPassword);
     
     const confirmationToken = crypto.randomBytes(20).toString('hex');
     
@@ -107,6 +107,25 @@ export const confirmClient = async (token) => {
   }
 };
 
+// Get client by email (without password)
+export const getClientByEmail = async (email) => {
+  console.log('[SERVICE] Buscando cliente por email:', email);
+  
+  try {
+    const client = await Client.findOne({ where: { contactEmail: email } });
+    if (!client) {
+      console.log('[SERVICE] Cliente não encontrado');
+      return null;
+    }
+    
+    const { password, ...clientData } = client.toJSON();
+    return clientData;
+  } catch (error) {
+    console.error('[SERVICE] Erro ao buscar cliente:', error);
+    throw error;
+  }
+};
+
 // Client login with JWT generation (with enhanced debug logging)
 export const loginClient = async (contactEmail, password) => {
   const debugLog = {
@@ -138,7 +157,6 @@ export const loginClient = async (contactEmail, password) => {
       attributes: { include: ['password'] } // Garante que a senha seja incluída
     });
 
-    // NOVO LOG ADICIONADO: Detalhes do cliente encontrado
     console.debug('[AUTH_SERVICE] Detalhes do cliente encontrado:', {
       id: client?.id,
       isConfirmed: client?.isConfirmed,
@@ -193,7 +211,6 @@ export const loginClient = async (contactEmail, password) => {
       saltRounds: 10
     };
 
-    // NOVO LOG ADICIONADO: Comparação de senha detalhada
     console.debug('[AUTH_SERVICE] Comparação de senha:', {
       inputPassword: crypto.createHash('sha256').update(password).digest('hex'),
       storedPassword: client.password ? `${client.password.substring(0, 10)}...` : 'null'
@@ -212,7 +229,6 @@ export const loginClient = async (contactEmail, password) => {
         message: 'Password comparison failed'
       };
       
-      // Debug avançado para problemas de codificação
       const encodingTest = {};
       const testEncodings = ['utf8', 'latin1', 'ascii'];
       
@@ -224,7 +240,6 @@ export const loginClient = async (contactEmail, password) => {
       debugLog.encodingTest = encodingTest;
       console.error('[AUTH_SERVICE] Falha na verificação de senha', debugLog);
       
-      // Atualizar contador de tentativas falhas
       await client.update({ 
         loginAttempts: (client.loginAttempts || 0) + 1,
         lastFailedAttempt: new Date()
@@ -299,11 +314,10 @@ export const loginClient = async (contactEmail, password) => {
     debugLog.error = {
       name: error.name,
       message: error.message,
-      stack: error.stack?.split('\n').slice(0, 3), // Primeiras 3 linhas do stack
+      stack: error.stack?.split('\n').slice(0, 3),
       code: error.code || 'UNKNOWN_ERROR'
     };
 
-    // Classificação de erros
     if (error.message.includes('Credenciais')) {
       debugLog.error.type = 'AUTH_FAILURE';
       console.warn('[AUTH_SERVICE] Falha de autenticação', debugLog);
@@ -315,7 +329,6 @@ export const loginClient = async (contactEmail, password) => {
       console.error('[AUTH_SERVICE] Erro no processo de login', debugLog);
     }
 
-    // Adicionar detalhes específicos para erros de JWT
     if (error.name === 'JsonWebTokenError') {
       debugLog.jwtError = {
         secretPresent: !!process.env.JWT_SECRET,
@@ -323,7 +336,6 @@ export const loginClient = async (contactEmail, password) => {
       };
     }
 
-    // Adicionar detalhes específicos para erros de bcrypt
     if (error.message.includes('Invalid salt version') || 
         error.message.includes('data and hash arguments required')) {
       debugLog.bcryptError = {
