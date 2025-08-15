@@ -1,8 +1,10 @@
+// client.model.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../../config/database.js';
 import bcryptjs from 'bcryptjs';
 import crypto from 'crypto';
 
+// Define client model structure
 const Client = sequelize.define('Client', {
   id: {
     type: DataTypes.INTEGER,
@@ -24,17 +26,13 @@ const Client = sequelize.define('Client', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    validate: {
-      isEmail: true
-    },
+    validate: { isEmail: true },
     field: 'contact_email'
   },
   phoneNumber: {
     type: DataTypes.STRING,
     allowNull: true,
-    validate: {
-      is: /^\+?[\d\s\-()]+$/ 
-    },
+    validate: { is: /^\+?[\d\s\-()]+$/ },
     field: 'phone_number'
   },
   password: {
@@ -64,118 +62,78 @@ const Client = sequelize.define('Client', {
 }, {
   tableName: 'clients',
   timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
   underscored: true
 });
 
-Client.afterCreate(async (client, options) => {
-  console.log('[MODEL] Novo cliente criado:', { 
-    id: client.id,
-    companyName: client.companyName,
-    contactEmail: client.contactEmail,
-    contactName: client.contactName,
-    phoneNumber: client.phoneNumber,
-    industry: client.industry
-  });
+// ⚠️ Log new client creation (remove sensitive data in production)
+Client.afterCreate(async (client) => {
+  console.log('🆕 Client created ID:', client.id);
 });
 
-Client.afterFind(async (clients, options) => {
-  if (Array.isArray(clients)) {
-    console.log(`[MODEL] ${clients.length} clientes encontrados`);
-  } else if (clients) {
-    console.log('[MODEL] Cliente encontrado:', {
-      id: clients.id,
-      companyName: clients.companyName
-    });
-  } else {
-    console.log('[MODEL] Nenhum cliente encontrado');
-  }
-});
-
-Client.afterUpdate(async (client, options) => {
-  console.log('[MODEL] Cliente atualizado:', {
-    id: client.id,
-    changes: client._changed
-  });
-});
-
+// Custom method for client registration
 Client.register = async function(clientData) {
-  console.log('[MODEL] Iniciando registro de cliente');
+  console.log('🔍 Checking duplicate email/company...');
+  const { companyName, contactEmail } = clientData;
   
-  const { companyName, contactName, contactEmail, phone, password, industry } = clientData;
-  
-  console.log('[MODEL] Verificando email existente:', contactEmail);
-  const existingClient = await this.findOne({ where: { contactEmail } });
-  if (existingClient) {
-    console.log('[MODEL] Email já registrado:', contactEmail);
-    throw new Error('Email já registrado');
+  if (await this.findOne({ where: { contactEmail } })) {
+    console.log('❌ Email already registered');
+    throw new Error('Email already registered');
   }
 
-  console.log('[MODEL] Verificando empresa existente:', companyName);
-  const existingCompany = await this.findOne({ where: { companyName } });
-  if (existingCompany) {
-    console.log('[MODEL] Empresa já registrada:', companyName);
-    throw new Error('Empresa já registrada');
+  if (await this.findOne({ where: { companyName } })) {
+    console.log('❌ Company already registered');
+    throw new Error('Company already registered');
   }
 
-  console.log('[MODEL] Gerando hash da senha');
-  const hashedPassword = await bcryptjs.hash(password, 10);
-  
-  console.log('[MODEL] Gerando token de confirmação');
+  const hashedPassword = await bcryptjs.hash(clientData.password, 10);
   const confirmationToken = crypto.randomBytes(20).toString('hex');
 
-  console.log('[MODEL] Criando novo cliente no banco');
   return await this.create({
-    companyName,
-    contactName,
-    contactEmail,
-    phoneNumber: phone,
+    ...clientData,
     password: hashedPassword,
-    industry,
     confirmationToken,
     isConfirmed: false
   });
 };
 
+// Account confirmation method
 Client.confirmAccount = async function(token) {
-  console.log('[MODEL] Confirmando conta com token:', token);
-  
+  console.log('🔑 Validating confirmation token...');
   const client = await this.findOne({ where: { confirmationToken: token } });
+  
   if (!client) {
-    console.log('[MODEL] Token inválido ou expirado:', token);
-    throw new Error('Token inválido ou expirado');
+    console.log('❌ Invalid/expired token');
+    throw new Error('Invalid token');
   }
 
-  console.log('[MODEL] Atualizando cliente confirmado:', client.id);
   client.isConfirmed = true;
   client.confirmationToken = null;
-  
+  console.log('✅ Account confirmed ID:', client.id);
   return await client.save();
 };
 
-Client.login = async function(contactEmail, password) {
-  console.log('[MODEL] Tentativa de login:', contactEmail);
+// Login validation method
+Client.login = async function(email, password) {
+  console.log('🔐 Attempting login for:', email);
+  const client = await this.findOne({ where: { contactEmail: email } });
   
-  const client = await this.findOne({ where: { contactEmail } });
   if (!client) {
-    console.log('[MODEL] Cliente não encontrado:', contactEmail);
-    throw new Error('Credenciais inválidas');
+    console.log('❌ Client not found');
+    throw new Error('Invalid credentials');
   }
 
   if (!client.isConfirmed) {
-    console.log('[MODEL] Conta não confirmada:', contactEmail);
-    throw new Error('Por favor, confirme seu email primeiro');
+    console.log('⚠️ Unconfirmed account');
+    throw new Error('Confirm your email first');
   }
 
-  console.log('[MODEL] Verificando senha');
-  const isPasswordValid = await bcryptjs.compare(password, client.password);
-  if (!isPasswordValid) {
-    console.log('[MODEL] Senha inválida para:', contactEmail);
-    throw new Error('Credenciais inválidas');
+  const validPass = await bcryptjs.compare(password, client.password);
+  if (!validPass) {
+    console.log('❌ Invalid password');
+    throw new Error('Invalid credentials');
   }
 
-  console.log('[MODEL] Login bem-sucedido para:', contactEmail);
+  console.log('✅ Login successful ID:', client.id);
   return client;
 };
 
