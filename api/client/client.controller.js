@@ -101,7 +101,7 @@ const registerClient = async (clientData) => {
   let emailTemplate = fs.readFileSync(templatePath, 'utf-8');
   emailTemplate = emailTemplate.replace(
     '{{confirmationUrl}}', 
-    `${process.env.BASE_URL}/api/clients/confirm/${confirmationToken}`
+    `http://localhost:5173/confirm?token=${confirmationToken}`
   );
 
   await transporter.sendMail({
