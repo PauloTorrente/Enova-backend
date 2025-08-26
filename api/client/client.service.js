@@ -55,7 +55,7 @@ export const registerClient = async (clientData) => {
     let emailTemplate = fs.readFileSync(templatePath, 'utf-8');
     emailTemplate = emailTemplate.replace(
       '{{confirmationUrl}}', 
-      `https://enova-backend.onrender.com/api/clients/confirm/${confirmationToken}`
+      `http://localhost:5173/confirmar-conta?token=${confirmationToken}`
     );
 
     await transporter.sendMail({
