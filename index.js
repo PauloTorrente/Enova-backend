@@ -18,7 +18,8 @@ const PORT = process.env.PORT || 3000;
 const allowedOrigins = [
   'https://www.opinacash.com',
   'https://opinacash.com',
-  'http://localhost:5173' // Dev environment
+  'http://localhost:5173',
+  'https://enova-pulse-rwpd.vercel.app'
 ];
 
 const corsOptions = {
