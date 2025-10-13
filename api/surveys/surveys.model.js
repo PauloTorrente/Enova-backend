@@ -1,3 +1,4 @@
+// surveys.model.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../../config/database.js';
 
@@ -5,67 +6,55 @@ import { sequelize } from '../../config/database.js';
 const Survey = sequelize.define('Survey', {
   id: {
     type: DataTypes.INTEGER,
-    primaryKey: true,       // This is the primary key
-    autoIncrement: true,    // Automatically increments for each new survey
+    primaryKey: true,
+    autoIncrement: true,
   },
   title: {
     type: DataTypes.STRING,
-    allowNull: false,       // Title is required
+    allowNull: false,
   },
   description: {
     type: DataTypes.STRING,
-    allowNull: true,        // Description is optional
+    allowNull: true,
   },
   questions: {
-    type: DataTypes.JSON,   // Store questions as JSON array
-    allowNull: false,       // Questions are required
+    type: DataTypes.JSON,
+    allowNull: false,
     validate: {
       isValidQuestions(value) {
-        // First check if questions is an array
         if (!Array.isArray(value)) {
           throw new Error('Questions must be an array');
         }
         
-        // Define allowed answer length constraints
         const allowedLengths = {
-          short: { min: 1, max: 100 },     // Minimum 1, maximum 100 chars
-          medium: { min: 10, max: 300 },   // Minimum 10, maximum 300 chars
-          long: { min: 50, max: 1000 },    // Minimum 50, maximum 1000 chars
-          unrestricted: { min: 0, max: Infinity } // No limits
+          short: { min: 1, max: 100 },
+          medium: { min: 10, max: 300 },
+          long: { min: 50, max: 1000 },
+          unrestricted: { min: 0, max: Infinity }
         };
         
-        // Validate each question object in the array
         for (const question of value) {
-          // Required fields for every question
           if (!question.type || !question.question || !question.questionId) {
             throw new Error('Each question must have type, question, and questionId');
           }
 
-          // Enhanced validation for multiple-choice questions
           if (question.type === 'multiple') {
-            // Validate multipleSelections is either 'yes' or 'no'
             if (question.multipleSelections && !['yes', 'no'].includes(question.multipleSelections)) {
               throw new Error('multipleSelections must be either "yes" or "no"');
             }
             
-            // Default to 'no' if not specified
             if (!question.multipleSelections) {
               question.multipleSelections = 'no';
             }
 
-            // Validate options array exists and has at least one option
             if (!question.options || !Array.isArray(question.options)) {
               throw new Error('Multiple choice questions must have an options array');
             }
 
-            // Additional validation for multiple selection questions ('yes')
-            if (question.multipleSelections === 'yes') {
-              if (question.options.length < 2) {
-                throw new Error('Multiple selection questions require at least two options');
-              }
+            if (question.multipleSelections === 'yes' && question.options.length < 2) {
+              throw new Error('Multiple selection questions require at least two options');
             }
 
-            // Validate all options are strings
             question.options.forEach(option => {
               if (typeof option !== 'string') {
                 throw new Error('All options must be strings');
@@ -73,7 +62,6 @@ const Survey = sequelize.define('Survey', {
             });
           }
           
-          // Validate media fields if present
           if (question.imagem && typeof question.imagem !== 'string') {
             throw new Error('Image must be a string (URL)');
           }
@@ -82,18 +70,15 @@ const Survey = sequelize.define('Survey', {
             throw new Error('Video must be a string (URL)');
           }
 
-          // Validate answerLength constraints
           if (question.answerLength) {
             if (typeof question.answerLength !== 'string') {
               throw new Error('answerLength must be a string');
             }
             
-            // Check if answerLength is one of the allowed types
             if (!allowedLengths[question.answerLength]) {
               throw new Error(`Invalid answerLength. Allowed values: ${Object.keys(allowedLengths).join(', ')}`);
             }
 
-            // Additional validation for text questions with length constraints
             if (question.type === 'text' && question.options) {
               const options = Array.isArray(question.options) ? question.options : [];
               options.forEach(option => {
@@ -112,46 +97,62 @@ const Survey = sequelize.define('Survey', {
   },
   expirationTime: {
     type: DataTypes.DATE,
-    allowNull: false,       // Expiration time is required
-    field: 'expirationTime', // Maps to this column name in database
+    allowNull: false,
+    // Keep as camelCase since database column is camelCase
   },
   status: {
-    type: DataTypes.ENUM('active', 'expired'), // Only these values allowed
-    defaultValue: 'active', // Defaults to 'active' when not specified
+    type: DataTypes.ENUM('active', 'expired'),
+    defaultValue: 'active',
   },
   accessToken: {
     type: DataTypes.STRING,
-    allowNull: false,       // Token is required
-    unique: true,           // Each token must be unique
+    allowNull: false,
+    unique: true,
+    // Keep as camelCase since database column is camelCase
   },
   clientId: {
     type: DataTypes.INTEGER,
-    allowNull: true,        // Can be null for surveys created by admins
+    allowNull: true,
     references: {
-      model: 'clients',    // References the clients table
-      key: 'id'            // References the id field in clients table
+      model: 'clients',
+      key: 'id'
     },
-    field: 'client_id'     // Database column name
+    field: 'client_id' // Map to snake_case column
   },
   responseLimit: {
     type: DataTypes.INTEGER,
-    allowNull: true,       // Can be null (unlimited responses)
-    defaultValue: null,    // Default value is null (unlimited)
-    field: 'response_limit', // Database column name
+    allowNull: true,
+    defaultValue: null,
+    field: 'response_limit', // Map to snake_case column
     validate: {
-      min: 1              // Minimum value if not null
+      min: 1
     }
+  },
+  // Add explicit timestamp fields to match mixed database naming
+  createdAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    field: 'created_at', // Map to snake_case column
+    defaultValue: DataTypes.NOW
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    field: 'updated_at', // Map to snake_case column
+    defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'surveys',     // Explicit table name
-  timestamps: false,        // Don't auto-create createdAt/updatedAt
+  tableName: 'surveys',
+  timestamps: true, // Enable timestamps
+  underscored: false, // DISABLE this since we have mixed naming
+  // We'll handle field mapping manually for each field
 });
 
 // Define the association between Survey and Result
 Survey.associate = (models) => {
   Survey.hasMany(models.Result, {
-    foreignKey: 'surveyId', // Foreign key in the Result model
-    as: 'results',          // Alias for the association
+    foreignKey: 'surveyId',
+    as: 'results',
   });
 
   // Add association with Client model

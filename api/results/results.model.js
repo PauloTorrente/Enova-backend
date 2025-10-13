@@ -44,7 +44,7 @@ const Result = sequelize.define('Result', {
 });
 
 // Define the association between Result and other models
-Result.associate = (models) => {
+Result.associate = function(models) {
   Result.belongsTo(models.User, {
     foreignKey: 'userId',
     as: 'user'

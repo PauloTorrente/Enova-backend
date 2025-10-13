@@ -1,10 +1,6 @@
 import express from 'express';
-import { register, confirm, login, getClient 
-} from './client.controller.js';
-import { 
-  authenticateClient, 
-  refreshClientToken 
-} from '../../middlewares/client.auth.middleware.js';
+import { register, confirm, login, getClient } from './client.controller.js';
+import { authenticateClient, refreshClientToken } from '../../middlewares/client.auth.middleware.js';
 
 // Create a new router instance
 const router = express.Router();
@@ -26,4 +22,3 @@ router.get('/me', authenticateClient, getClient);
 
 // Export the configured router
 export default router;
-
