@@ -51,20 +51,53 @@ export const respondToSurveyByToken = async (req, res) => {
       ? JSON.parse(survey.questions) 
       : survey.questions;
 
+    console.log('🔍 Survey questions structure:', {
+      totalQuestions: questions.length,
+      firstQuestion: questions[0] ? {
+        questionId: questions[0].questionId,
+        question: questions[0].question,
+        type: questions[0].type
+      } : 'No questions'
+    });
+
     // Process each response item with validation
-    const resultEntries = response.map(item => {
+    const resultEntries = response.map((item, index) => {
+      console.log(`\n📝 Processing response ${index + 1}:`, {
+        questionId: item.questionId,
+        answer: item.answer
+      });
+
+      // Find the corresponding question in the survey
       const questionObj = questions.find(q => 
         q.questionId === item.questionId || q.id === item.questionId
       );
 
       if (!questionObj) {
-        console.error('❌ Question not found:', item.questionId);
+        console.error('❌ Question not found for ID:', item.questionId);
+        console.error('🔍 Available questions:', questions.map(q => ({
+          questionId: q.questionId,
+          id: q.id,
+          question: q.question
+        })));
         throw new Error(`Question with ID ${item.questionId} not found`);
       }
 
+      // GET THE ACTUAL QUESTION TEXT - THIS IS THE KEY FIX
+      const questionText = questionObj.question;
+      
+      if (!questionText) {
+        console.error('❌ CRITICAL: questionObj.question is empty!', {
+          questionObj,
+          availableKeys: Object.keys(questionObj)
+        });
+        throw new Error(`Question text not found for question ID ${item.questionId}`);
+      }
+
+      console.log(`✅ Found question text: "${questionText}"`);
+
       // Validate answer based on question type
       if (questionObj.type === 'multiple') {
-        // Multiple selection validation (now checking for "yes" instead of boolean)
+        // Multiple selection validation
         if (questionObj.multipleSelections === 'yes') {
           if (!Array.isArray(item.answer)) {
             throw new Error(`Question ${item.questionId} requires multiple answers (array)`);
@@ -76,7 +109,7 @@ export const respondToSurveyByToken = async (req, res) => {
             }
           });
         } 
-        // Single selection validation (multipleSelections === 'no')
+        // Single selection validation
         else {
           if (Array.isArray(item.answer)) {
             throw new Error(`Question ${item.questionId} only accepts a single answer`);
@@ -95,24 +128,70 @@ export const respondToSurveyByToken = async (req, res) => {
       // Validate answer length for text questions
       validateAnswerLength(questionObj, item.answer);
 
-      return {
+      // CREATE THE RESULT ENTRY WITH THE ACTUAL QUESTION TEXT
+      const resultEntry = {
         surveyId: survey.id,
         userId,
         surveyTitle: survey.title,
-        question: questionObj.question || questionObj.text,
+        question: questionText, // ← THIS IS THE ACTUAL QUESTION CREATED BY THE USER/CLIENT
         answer: item.answer,
       };
+
+      console.log('💾 Saving result with actual question text:', {
+        question: resultEntry.question,
+        answer: resultEntry.answer
+      });
+
+      return resultEntry;
+    });
+
+    // Final verification before saving
+    console.log('\n🔍 FINAL VERIFICATION - All entries have actual question texts:');
+    resultEntries.forEach((entry, index) => {
+      console.log(`   Entry ${index + 1}:`, {
+        question: entry.question,
+        answer: entry.answer
+      });
     });
 
     // Save all valid responses
-    await Result.bulkCreate(resultEntries);
-    console.log('✅ Survey response recorded successfully');
-    return res.status(200).json({ message: 'Response recorded successfully' });
+    console.log('💾 Saving to database...');
+    const savedResults = await Result.bulkCreate(resultEntries);
+    
+    console.log('✅ Survey responses recorded successfully with actual question texts');
+    console.log('📊 Saved results count:', savedResults.length);
+
+    // Immediate verification from database
+    const recentlySaved = await Result.findAll({
+      where: { 
+        surveyId: survey.id,
+        userId: userId 
+      },
+      order: [['id', 'DESC']],
+      limit: 3,
+      raw: true
+    });
+
+    console.log('🔍 DATABASE VERIFICATION - Recently saved results:');
+    recentlySaved.forEach((result, index) => {
+      console.log(`   Result ${index + 1}:`, {
+        id: result.id,
+        question: result.question,
+        answer: result.answer
+      });
+    });
+
+    return res.status(200).json({ 
+      message: 'Response recorded successfully',
+      details: {
+        savedCount: savedResults.length,
+        questions: resultEntries.map(entry => entry.question)
+      }
+    });
   } catch (error) {
     console.error('❌ Response recording error:', error.message);
     res.status(500).json({ 
-      message: error.message || 'Internal error while recording response',
-      details: error.details || null
+      message: error.message || 'Internal error while recording response'
     });
   }
 };

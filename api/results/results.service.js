@@ -42,9 +42,8 @@ export const getResponsesBySurvey = async (surveyId) => {
   try {
     console.log('Fetching survey responses...');
     
-    const responses = await Result.findAll({
-      where: { surveyId }
-    });
+    // Use repository function instead of direct model call for consistency
+    const responses = await resultsRepository.getResponsesBySurvey(surveyId);
 
     if (!responses.length) throw new Error('No responses found');
     return responses;
@@ -59,9 +58,8 @@ export const getUserResponses = async (userId) => {
   try {
     console.log('Fetching user responses...');
     
-    const userResponses = await Result.findAll({
-      where: { userId }
-    });
+    // Use repository function instead of direct model call for consistency
+    const userResponses = await resultsRepository.getUserResponses(userId);
 
     if (!userResponses.length) throw new Error('No user responses found');
     return userResponses;
@@ -76,9 +74,8 @@ export const getResponsesByQuestion = async (surveyId, question) => {
   try {
     console.log('Fetching question responses...');
     
-    const responses = await Result.findAll({
-      where: { surveyId, question }
-    });
+    // Use repository function instead of direct model call for consistency
+    const responses = await resultsRepository.getResponsesByQuestion(surveyId, question);
 
     if (!responses.length) throw new Error('No question responses found');
     return responses;
@@ -90,33 +87,47 @@ export const getResponsesByQuestion = async (surveyId, question) => {
 
 // Format responses for Excel export
 export const exportResponsesToExcel = async (surveyId) => {
-  const responses = await getResponsesBySurvey(surveyId);
+  // Get responses using repository function
+  const responses = await resultsRepository.getResponsesBySurvey(surveyId);
+  
+  // Format responses for Excel export
   return responses.map(r => ({
-    ...r.get({ plain: true }),
-    answer: r.answer.replace(/^"(.*)"$/, '$1') // Clean quotes
+    ...r,
+    answer: typeof r.answer === 'string' ? r.answer.replace(/^"(.*)"$/, '$1') : r.answer // Clean quotes from stringified answers
   }));
 };
 
-// Get responses with user demographic data
+// Get responses with user demographic data - UPDATED VERSION WITH FIXED QUESTION FIELD
 export const getSurveyResponsesWithUserDetails = async (surveyId) => {
   try {
-    console.log(`Fetching responses with user details...`);
+    console.log(`🔍 [SERVICE] Fetching responses with user details for survey: ${surveyId}`);
     
-    if (!User) throw new Error('User model not available');
+    // Use the updated repository function that fixes the question field issue
+    const responses = await resultsRepository.getSurveyResponsesWithUserDetails(surveyId);
     
-    // Query with user data join
-    const responses = await Result.findAll({
-      where: { surveyId },
-      include: [{
-        model: User,
-        as: 'user', // Association alias
-        attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age']
-      }]
-    });
+    console.log(`✅ [SERVICE] Retrieved ${responses.length} responses with user details`);
+    
+    // Additional debug logging to verify question field is populated
+    if (responses.length > 0) {
+      console.log('📋 [SERVICE] First response details for verification:', {
+        id: responses[0].id,
+        question: responses[0].question, // This should now be populated
+        answer: responses[0].answer,
+        userId: responses[0].userId,
+        hasUser: !!responses[0].user,
+        userData: responses[0].user ? {
+          id: responses[0].user.id,
+          name: `${responses[0].user.firstName} ${responses[0].user.lastName}`
+        } : 'No user data'
+      });
+    } else {
+      console.log('ℹ️ [SERVICE] No responses found for this survey');
+    }
     
     return responses;
   } catch (error) {
-    console.error('User details error:', error);
+    console.error('❌ [SERVICE] User details error:', error);
+    console.error('🔍 [SERVICE] Error stack:', error.stack);
     throw new Error('User details failed: ' + error.message);
   }
 };

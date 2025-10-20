@@ -1,4 +1,3 @@
-// client.controller.js
 import crypto from 'crypto';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';

@@ -55,7 +55,7 @@ export const getResponsesBySurvey = async (surveyId) => {
     // Parse JSON answers back to arrays if they were stringified
     const parsedResponses = responses.map(r => ({
       ...r,
-      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+      answer: typeof r.answer === 'string' && r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
     }));
 
     console.log(`Found ${parsedResponses.length} responses for surveyId: ${surveyId}`); // Debugging log
@@ -88,7 +88,7 @@ export const getUserResponses = async (userId) => {
     // Parse JSON answers back to arrays if they were stringified
     const parsedResponses = responses.map(r => ({
       ...r,
-      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+      answer: typeof r.answer === 'string' && r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
     }));
 
     console.log(`Found ${parsedResponses.length} responses for userId: ${userId}`); // Debugging log
@@ -122,7 +122,7 @@ export const getResponsesByQuestion = async (surveyId, question) => {
     // Parse JSON answers back to arrays if they were stringified
     const parsedResponses = responses.map(r => ({
       ...r,
-      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
+      answer: typeof r.answer === 'string' && r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
     }));
 
     console.log(`Found ${parsedResponses.length} responses for surveyId: ${surveyId}, question: ${question}`); // Debugging log
@@ -133,27 +133,49 @@ export const getResponsesByQuestion = async (surveyId, question) => {
   }
 };
 
-// Function to get survey responses with associated user details
+// Function to get survey responses with associated user details - CORRIGIDO
 export const getSurveyResponsesWithUserDetails = async (surveyId) => {
   try {
-    // Fetch responses including user information
+    console.log(`🔍 [REPOSITORY] Fetching responses with user details for survey: ${surveyId}`); // Debugging log
+    
+    // Fetch responses including user information - REMOVIDO raw: true para que as associações funcionem corretamente
     const responses = await Result.findAll({
       where: { surveyId },
       include: [{
         model: User, // User model imported at the top
-        attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age']
-      }],
-      raw: true // Get plain objects instead of model instances
+        as: 'user', // Association alias for proper mapping
+        attributes: ['id', 'firstName', 'lastName', 'email', 'city', 'residentialArea', 'gender', 'age'] // User fields to include
+      }]
     });
 
-    // Parse JSON answers back to arrays if they were stringified
-    const parsedResponses = responses.map(r => ({
-      ...r,
-      answer: r.answer.startsWith('[') ? JSON.parse(r.answer) : r.answer
-    }));
+    console.log(`✅ [REPOSITORY] Found ${responses.length} responses with user details`); // Debugging log
 
-    return parsedResponses;
+    // Convert to plain objects and parse answers - using toJSON() for proper instance conversion
+    const parsedResponses = responses.map(r => {
+      const responseData = r.toJSON ? r.toJSON() : r; // Convert Sequelize instance to plain object if needed
+      
+      return {
+        ...responseData,
+        answer: typeof responseData.answer === 'string' && responseData.answer.startsWith('[') 
+          ? JSON.parse(responseData.answer) // Parse array answers back to arrays
+          : responseData.answer // Keep other answer types as is
+      };
+    });
+
+    // Debug: log first response to verify question field is populated
+    if (parsedResponses.length > 0) {
+      console.log('📋 [REPOSITORY] First response sample:', { // Debugging log
+        id: parsedResponses[0].id,
+        question: parsedResponses[0].question, // This should now be populated
+        answer: parsedResponses[0].answer,
+        hasUser: !!parsedResponses[0].user // Check if user data is included
+      });
+    }
+
+    return parsedResponses; // Returning the list of responses with user details
   } catch (error) {
+    console.error('❌ [REPOSITORY] Error fetching responses with user details:', error.message); // Debugging log
+    console.error('🔍 [REPOSITORY] Error details:', error); // Debugging log
     throw new Error('Error fetching responses with user details: ' + error.message);
   }
 };

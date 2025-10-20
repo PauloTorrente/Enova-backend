@@ -10,7 +10,7 @@ export const getUserResponses = basicController.getUserResponses;
 export const getResponsesBySurvey = clientController.getResponsesBySurvey;
 export const getResponsesByQuestion = clientController.getResponsesByQuestion;
 export const getSurveyResponsesWithUserDetails = clientController.getSurveyResponsesWithUserDetails;
-export const getSurveyAnalytics = clientController.getSurveyAnalytics; // NOVA FUNÇÃO
+export const getSurveyAnalytics = clientController.getSurveyAnalytics; 
 export { exportResponsesToExcel };
 
 // Export controller collection
@@ -21,5 +21,5 @@ export default {
   getResponsesByQuestion,
   exportResponsesToExcel,
   getSurveyResponsesWithUserDetails,
-  getSurveyAnalytics // NOVA FUNÇÃO
+  getSurveyAnalytics 
 };
