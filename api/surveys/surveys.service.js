@@ -1,4 +1,3 @@
-// surveys.service.js
 import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 import { Op } from 'sequelize';
@@ -75,6 +74,7 @@ export const createSurvey = async (surveyData, clientId = null) => {
       console.log(`   Question text: ${question.question}`);
       console.log(`   Question ID: ${question.questionId}`);
       console.log(`   Multiple selections: ${question.multipleSelections}`);
+      console.log(`   Selection limit: ${question.selectionLimit}`);
       console.log(`   Answer length: ${question.answerLength}`);
       console.log(`   Options count: ${question.options?.length || 0}`);
       
@@ -113,6 +113,30 @@ export const createSurvey = async (surveyData, clientId = null) => {
         if (!question.multipleSelections) {
           question.multipleSelections = 'no';
           console.log(`   ➕ [CREATE_SURVEY] Set default multipleSelections: "no"`);
+        }
+        
+        // Validate selection limit for multiple selection questions
+        if (question.multipleSelections === 'yes' && question.selectionLimit) {
+          console.log(`   🔍 [CREATE_SURVEY] Validating selection limit: ${question.selectionLimit}`);
+          if (typeof question.selectionLimit !== 'number' || question.selectionLimit < 1) {
+            console.error(`❌ [CREATE_SURVEY] Invalid selectionLimit: ${question.selectionLimit}`);
+            throw new Error(`Question ${index + 1}: selectionLimit must be a positive number`);
+          }
+          if (question.selectionLimit > question.options.length) {
+            console.error(`❌ [CREATE_SURVEY] selectionLimit exceeds options count`);
+            throw new Error(`Question ${index + 1}: selectionLimit cannot exceed the number of available options`);
+          }
+          if (question.selectionLimit === 1) {
+            console.error(`❌ [CREATE_SURVEY] selectionLimit should not be 1 for multiple selection`);
+            throw new Error(`Question ${index + 1}: For single selection, set multipleSelections to "no" instead of using selectionLimit`);
+          }
+          console.log(`   ✅ [CREATE_SURVEY] Selection limit validation passed`);
+        }
+        
+        // Validate that selectionLimit is not used for single selection
+        if (question.multipleSelections === 'no' && question.selectionLimit) {
+          console.error(`❌ [CREATE_SURVEY] selectionLimit not allowed for single selection`);
+          throw new Error(`Question ${index + 1}: selectionLimit is only allowed for multiple selection questions (multipleSelections: "yes")`);
         }
         
         console.log(`   ✅ [CREATE_SURVEY] Multiple choice validation passed`);

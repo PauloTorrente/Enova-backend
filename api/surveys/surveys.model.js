@@ -1,8 +1,6 @@
-// surveys.model.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../../config/database.js';
 
-// Define the Survey model using Sequelize
 const Survey = sequelize.define('Survey', {
   id: {
     type: DataTypes.INTEGER,
@@ -53,6 +51,24 @@ const Survey = sequelize.define('Survey', {
 
             if (question.multipleSelections === 'yes' && question.options.length < 2) {
               throw new Error('Multiple selection questions require at least two options');
+            }
+            if (question.multipleSelections === 'yes') {
+              if (question.selectionLimit) {
+                if (typeof question.selectionLimit !== 'number' || question.selectionLimit < 1) {
+                  throw new Error('selectionLimit must be a positive number');
+                }
+                if (question.selectionLimit > question.options.length) {
+                  throw new Error('selectionLimit cannot exceed the number of available options');
+                }
+                if (question.selectionLimit === 1) {
+                  throw new Error('For single selection, set multipleSelections to "no" instead of using selectionLimit');
+                }
+              }
+            } else {
+              // Para seleção única, não deve ter selectionLimit
+              if (question.selectionLimit) {
+                throw new Error('selectionLimit is only allowed for multiple selection questions (multipleSelections: "yes")');
+              }
             }
 
             question.options.forEach(option => {

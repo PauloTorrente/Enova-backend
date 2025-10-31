@@ -82,7 +82,7 @@ export const respondToSurveyByToken = async (req, res) => {
         throw new Error(`Question with ID ${item.questionId} not found`);
       }
 
-      // GET THE ACTUAL QUESTION TEXT - THIS IS THE KEY FIX
+      // Get the actual question text from the survey
       const questionText = questionObj.question;
       
       if (!questionText) {
@@ -102,6 +102,13 @@ export const respondToSurveyByToken = async (req, res) => {
           if (!Array.isArray(item.answer)) {
             throw new Error(`Question ${item.questionId} requires multiple answers (array)`);
           }
+          
+          if (questionObj.selectionLimit && item.answer.length > questionObj.selectionLimit) {
+            throw new Error(
+              `Question "${questionText}" allows maximum ${questionObj.selectionLimit} selection(s). You selected ${item.answer.length}.`
+            );
+          }
+          
           // Validate each selected option exists in question options
           item.answer.forEach(ans => {
             if (!questionObj.options.includes(ans)) {
@@ -128,12 +135,12 @@ export const respondToSurveyByToken = async (req, res) => {
       // Validate answer length for text questions
       validateAnswerLength(questionObj, item.answer);
 
-      // CREATE THE RESULT ENTRY WITH THE ACTUAL QUESTION TEXT
+      // Create the result entry with the actual question text
       const resultEntry = {
         surveyId: survey.id,
         userId,
         surveyTitle: survey.title,
-        question: questionText, // ← THIS IS THE ACTUAL QUESTION CREATED BY THE USER/CLIENT
+        question: questionText, // Use the actual question text from the survey
         answer: item.answer,
       };
 
@@ -154,7 +161,7 @@ export const respondToSurveyByToken = async (req, res) => {
       });
     });
 
-    // Save all valid responses
+    // Save all valid responses to database
     console.log('💾 Saving to database...');
     const savedResults = await Result.bulkCreate(resultEntries);
     
@@ -181,6 +188,7 @@ export const respondToSurveyByToken = async (req, res) => {
       });
     });
 
+    // Return success response
     return res.status(200).json({ 
       message: 'Response recorded successfully',
       details: {

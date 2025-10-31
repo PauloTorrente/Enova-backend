@@ -1,7 +1,6 @@
 // results.router.js - VERSÃO CORRIGIDA
 import express from 'express'; 
 import * as resultsController from './results.controller.js'; 
-// REMOVA ESTA LINHA → import * as resultsClientController from './results.client.controller.js'; 
 import { authenticateAdmin, authenticateUser, authenticateClient } from '../../middlewares/auth.middleware.js'; 
 
 const router = express.Router(); 
