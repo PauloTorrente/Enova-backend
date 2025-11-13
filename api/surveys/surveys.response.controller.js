@@ -67,10 +67,29 @@ export const respondToSurveyByToken = async (req, res) => {
         answer: item.answer
       });
 
-      // Find the corresponding question in the survey
-      const questionObj = questions.find(q => 
+      // LÓGICA PERMISSIVA - Tenta encontrar a questão de várias formas
+      let questionObj = questions.find(q => 
         q.questionId === item.questionId || q.id === item.questionId
       );
+
+      // Se não encontrou, tenta por índice numérico
+      if (!questionObj) {
+        const numericId = parseInt(item.questionId);
+        if (!isNaN(numericId) && numericId > 0 && numericId <= questions.length) {
+          questionObj = questions[numericId - 1];
+          if (questionObj) {
+            console.log(`🔄 Question ID ${item.questionId} mapeado para índice ${numericId - 1}`);
+          }
+        }
+      }
+
+      // Se ainda não encontrou, tenta buscar por posição no array
+      if (!questionObj && index < questions.length) {
+        questionObj = questions[index];
+        if (questionObj) {
+          console.log(`🔄 Usando questão na posição ${index} como fallback`);
+        }
+      }
 
       if (!questionObj) {
         console.error('❌ Question not found for ID:', item.questionId);

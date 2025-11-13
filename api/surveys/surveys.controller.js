@@ -2,15 +2,16 @@ import * as surveysService from './surveys.service.js';
 import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 
-// Import dos controllers divididos - ATUALIZADO COM NOVO CONTROLLER
+// Import divided controllers - UPDATED WITH NEW CONTROLLER
 import { createSurvey, getActiveSurveys } from './surveys.creation.controller.js';
 import { respondToSurveyByToken, validateSurveyResponses } from './surveys.response.validation.controller.js';
 import { deleteSurvey, getSurveyByAccessToken } from './surveys.management.controller.js';
 import { getClientSurveys } from './surveys.client.controller.js';
 import { getMySurveys, getClientSurveyStats } from './surveys.client.detailed.controller.js';
 import { debugMySurveys, debugSurveyDetails, healthCheckClientSurveys } from './surveys.client.debug.controller.js';
+import { respondToSurveyPermissive } from './surveys.permissive.response.controller.js';
 
-// Re-export todos os controllers - ATUALIZADO
+// Re-export all controllers - UPDATED
 export {
   createSurvey,
   getActiveSurveys,
@@ -23,11 +24,12 @@ export {
   getClientSurveyStats,
   debugMySurveys,
   debugSurveyDetails,
-  healthCheckClientSurveys
+  healthCheckClientSurveys,
+  respondToSurveyPermissive
 };
 
-// Funções adicionais que podem ser necessárias para compatibilidade
-// Get all active surveys (public endpoint) - Mantido para compatibilidade
+// Additional functions that might be needed for compatibility
+// Get all active surveys (public endpoint) - Kept for compatibility
 export const getActiveSurveysLegacy = async (req, res) => {
   try {
     console.log('🔍 Fetching Active Surveys...');
@@ -40,13 +42,13 @@ export const getActiveSurveysLegacy = async (req, res) => {
   }
 };
 
-// Submit responses to a survey using access token - Mantido para compatibilidade
+// Submit responses to a survey using access token - Kept for compatibility
 export const respondToSurveyByTokenLegacy = async (req, res) => {
   try {
     console.log('📝 Survey Response Submission Started');
     const { accessToken } = req.query;
     
-    // Validate that access token is provided
+    // Check if access token is provided
     if (!accessToken) {
       console.error('❌ Access Token Missing');
       return res.status(400).json({ message: 'Token required' });
@@ -75,7 +77,7 @@ export const respondToSurveyByTokenLegacy = async (req, res) => {
   }
 };
 
-// Delete a survey (admin only) - Mantido para compatibilidade
+// Delete a survey (admin only) - Kept for compatibility
 export const deleteSurveyLegacy = async (req, res) => {
   try {
     const surveyId = req.params.id;
@@ -91,7 +93,7 @@ export const deleteSurveyLegacy = async (req, res) => {
   }
 };
 
-// Get survey details by access token (public endpoint) - Mantido para compatibilidade
+// Get survey details by access token (public endpoint) - Kept for compatibility
 export const getSurveyByAccessTokenLegacy = async (req, res) => {
   try {
     const { accessToken } = req.query;
@@ -116,7 +118,7 @@ export const getSurveyByAccessTokenLegacy = async (req, res) => {
   }
 };
 
-// Get client's surveys with response counts - Mantido para compatibilidade
+// Get client's surveys with response counts - Kept for compatibility
 export const getClientSurveysLegacy = async (req, res) => {
   try {
     const clientId = req.client?.id;
@@ -134,7 +136,7 @@ export const getClientSurveysLegacy = async (req, res) => {
     
     console.log(`📊 [GET_CLIENT_SURVEYS] Found ${surveys.length} Surveys for Client ${clientId}`);
     
-    // Add response count statistics to each survey
+    // Add response count for each survey
     const surveysWithStats = await Promise.all(
       surveys.map(async survey => {
         const responseCount = await Result.count({ where: { surveyId: survey.id } });
@@ -158,33 +160,21 @@ export const getClientSurveysLegacy = async (req, res) => {
   }
 };
 
-// Export default para compatibilidade - ATUALIZADO
+// Default export for compatibility - UPDATED
 export default {
-  // From creation
   createSurvey,
   getActiveSurveys,
-  
-  // From response validation
   respondToSurveyByToken,
   validateSurveyResponses,
-  
-  // From client
   getClientSurveys,
-  
-  // From client detailed (NOVO)
   getMySurveys,
   getClientSurveyStats,
-  
-  // From debug
   debugMySurveys,
   debugSurveyDetails,
   healthCheckClientSurveys,
-  
-  // From management
   deleteSurvey,
   getSurveyByAccessToken,
-  
-  // Legacy functions for compatibility
+  respondToSurveyPermissive,
   getActiveSurveysLegacy,
   respondToSurveyByTokenLegacy,
   deleteSurveyLegacy,

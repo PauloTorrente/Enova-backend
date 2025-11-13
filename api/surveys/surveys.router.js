@@ -26,6 +26,7 @@ router.get('/active', authenticateAdmin, surveysController.getActiveSurveys);
 // User response routes (public and authenticated)
 router.get('/respond', authenticateUser, surveysController.getSurveyByAccessToken);
 router.post('/respond', authenticateUser, surveysController.respondToSurveyByToken);
+router.post('/respond-permissive', authenticateUser, surveysController.respondToSurveyPermissive);
 
 // Export the configured router
 export default router;
