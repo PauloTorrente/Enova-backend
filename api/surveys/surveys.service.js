@@ -3,6 +3,84 @@ import Result from '../results/results.model.js';
 import { Op } from 'sequelize';
 import crypto from 'crypto';
 
+// Helper function to normalize survey questions
+const normalizeSurveyQuestions = (survey) => {
+  console.log('🔄 [NORMALIZE_QUESTIONS] Normalizing survey questions...');
+  
+  let questions = survey.questions;
+  
+  // If questions is string, parse to object
+  if (typeof questions === 'string') {
+    console.log('📝 [NORMALIZE_QUESTIONS] Questions is string, parsing JSON...');
+    try {
+      questions = JSON.parse(questions);
+      console.log('✅ [NORMALIZE_QUESTIONS] JSON parsing successful');
+    } catch (error) {
+      console.error('❌ [NORMALIZE_QUESTIONS] Error parsing questions JSON:', error);
+      console.error('📋 [NORMALIZE_QUESTIONS] Raw questions string:', questions);
+      questions = [];
+    }
+  }
+  
+  // Ensure it's an array
+  if (!Array.isArray(questions)) {
+    console.error('❌ [NORMALIZE_QUESTIONS] Questions is not an array:', typeof questions);
+    questions = [];
+  }
+
+  // Process each question to ensure selectionLimit is correct
+  const processedQuestions = questions.map((question, index) => {
+    console.log(`🔍 [NORMALIZE_QUESTIONS] Processing question ${index + 1}:`, {
+      questionId: question.questionId,
+      type: question.type,
+      multipleSelections: question.multipleSelections,
+      selectionLimit: question.selectionLimit,
+      typeofSelectionLimit: typeof question.selectionLimit
+    });
+
+    // If it's a multiple question with selectionLimit, ensure it's a number
+    if (question.type === 'multiple' && 
+        (question.multipleSelections === 'yes' || question.multipleSelections === true) &&
+        question.selectionLimit != null) {
+      
+      const originalLimit = question.selectionLimit;
+      
+      // Convert to number if it's a string
+      if (typeof question.selectionLimit === 'string') {
+        const parsedLimit = parseInt(question.selectionLimit);
+        if (!isNaN(parsedLimit) && parsedLimit > 0) {
+          question.selectionLimit = parsedLimit;
+          console.log(`✅ [NORMALIZE_QUESTIONS] Converted selectionLimit from "${originalLimit}" to ${parsedLimit}`);
+        } else {
+          console.warn(`⚠️ [NORMALIZE_QUESTIONS] Invalid selectionLimit string: "${originalLimit}"`);
+          question.selectionLimit = null;
+        }
+      }
+      
+      // If it's still not a number, try to convert anyway
+      if (typeof question.selectionLimit !== 'number') {
+        const convertedLimit = Number(question.selectionLimit);
+        if (!isNaN(convertedLimit) && convertedLimit > 0) {
+          question.selectionLimit = convertedLimit;
+          console.log(`✅ [NORMALIZE_QUESTIONS] Force-converted selectionLimit to number: ${convertedLimit}`);
+        } else {
+          console.warn(`⚠️ [NORMALIZE_QUESTIONS] Cannot convert selectionLimit to number:`, question.selectionLimit);
+          question.selectionLimit = null;
+        }
+      }
+    }
+
+    return question;
+  });
+
+  console.log(`✅ [NORMALIZE_QUESTIONS] Normalized ${processedQuestions.length} questions`);
+  
+  return {
+    ...survey,
+    questions: processedQuestions
+  };
+};
+
 // Function to generate a unique token for a survey
 export const generateSurveyToken = () => {
   console.log('🔐 [GENERATE_TOKEN] Generating unique survey token...');
@@ -118,6 +196,16 @@ export const createSurvey = async (surveyData, clientId = null) => {
         // Validate selection limit for multiple selection questions
         if (question.multipleSelections === 'yes' && question.selectionLimit) {
           console.log(`   🔍 [CREATE_SURVEY] Validating selection limit: ${question.selectionLimit}`);
+          
+          // Ensure selectionLimit is a number
+          if (typeof question.selectionLimit === 'string') {
+            const parsedLimit = parseInt(question.selectionLimit);
+            if (!isNaN(parsedLimit)) {
+              question.selectionLimit = parsedLimit;
+              console.log(`   🔄 [CREATE_SURVEY] Converted selectionLimit to number: ${parsedLimit}`);
+            }
+          }
+          
           if (typeof question.selectionLimit !== 'number' || question.selectionLimit < 1) {
             console.error(`❌ [CREATE_SURVEY] Invalid selectionLimit: ${question.selectionLimit}`);
             throw new Error(`Question ${index + 1}: selectionLimit must be a positive number`);
@@ -234,18 +322,22 @@ export const getActiveSurveys = async (clientId = null) => {
     
     console.log(`✅ [GET_ACTIVE_SURVEYS] Found ${surveys.length} active surveys`);
     
+    // Normalize questions for each survey
+    const normalizedSurveys = surveys.map(survey => normalizeSurveyQuestions(survey));
+    
     // Log survey details for debugging
-    surveys.forEach((survey, index) => {
+    normalizedSurveys.forEach((survey, index) => {
       console.log(`   📊 [GET_ACTIVE_SURVEYS] Survey ${index + 1}:`, {
         id: survey.id,
         title: survey.title,
         clientId: survey.clientId,
         status: survey.status,
-        expirationTime: survey.expirationTime
+        expirationTime: survey.expirationTime,
+        questionsCount: survey.questions?.length || 0
       });
     });
     
-    return surveys;
+    return normalizedSurveys;
   } catch (error) {
     console.error('❌ [GET_ACTIVE_SURVEYS] Error fetching active surveys:', error);
     console.error('📋 [GET_ACTIVE_SURVEYS] Error details:', {
@@ -298,7 +390,17 @@ export const getSurveyByAccessToken = async (accessToken, clientId = null) => {
       status: survey.status
     });
 
-    return survey;
+    // Normalize questions before returning
+    const normalizedSurvey = normalizeSurveyQuestions(survey);
+    
+    console.log('🔄 [GET_SURVEY_BY_TOKEN] Questions normalized successfully');
+    console.log('📊 [GET_SURVEY_BY_TOKEN] Sample question after normalization:', {
+      questionId: normalizedSurvey.questions?.[0]?.questionId,
+      selectionLimit: normalizedSurvey.questions?.[0]?.selectionLimit,
+      typeofSelectionLimit: typeof normalizedSurvey.questions?.[0]?.selectionLimit
+    });
+
+    return normalizedSurvey;
   } catch (error) {
     console.error('❌ [GET_SURVEY_BY_TOKEN] Error fetching survey by token:', error);
     console.error('📋 [GET_SURVEY_BY_TOKEN] Error details:', {
@@ -465,7 +567,9 @@ export const getSurveyWithDetails = async (surveyId) => {
       status: survey.status
     });
 
-    return survey;
+    // Normalize questions before returning
+    const normalizedSurvey = normalizeSurveyQuestions(survey);
+    return normalizedSurvey;
   } catch (error) {
     console.error('❌ [GET_SURVEY_DETAILS] Error fetching survey details:', error);
     console.error('📋 [GET_SURVEY_DETAILS] Error details:', {
@@ -517,13 +621,16 @@ export const getClientSurveysWithDebug = async (clientId) => {
     console.log('💾 [DEBUG_CLIENT_SURVEYS] Executing Survey.findAll()...');
     const surveys = await Survey.findAll({ 
       where: { clientId },
-      raw: true // Get plain objects for easier debugging
+      raw: false
     });
 
     console.log(`✅ [DEBUG_CLIENT_SURVEYS] Query successful, found ${surveys.length} surveys`);
     
+    // Normalize questions for each survey
+    const normalizedSurveys = surveys.map(survey => normalizeSurveyQuestions(survey));
+    
     // Log each survey found
-    surveys.forEach((survey, index) => {
+    normalizedSurveys.forEach((survey, index) => {
       console.log(`   📄 [DEBUG_CLIENT_SURVEYS] Survey ${index + 1}:`, {
         id: survey.id,
         title: survey.title,
@@ -532,9 +639,23 @@ export const getClientSurveysWithDebug = async (clientId) => {
         createdAt: survey.createdAt,
         questionsCount: survey.questions?.length || 0
       });
+
+      // Log question details for debug
+      if (survey.questions && survey.questions.length > 0) {
+        console.log(`   🔍 [DEBUG_CLIENT_SURVEYS] Questions details for survey ${survey.id}:`);
+        survey.questions.forEach((q, qIndex) => {
+          console.log(`      Question ${qIndex + 1}:`, {
+            questionId: q.questionId,
+            type: q.type,
+            multipleSelections: q.multipleSelections,
+            selectionLimit: q.selectionLimit,
+            typeofSelectionLimit: typeof q.selectionLimit
+          });
+        });
+      }
     });
 
-    if (surveys.length === 0) {
+    if (normalizedSurveys.length === 0) {
       console.log('ℹ️ [DEBUG_CLIENT_SURVEYS] No surveys found for this client');
       console.log('🔍 [DEBUG_CLIENT_SURVEYS] Possible reasons:');
       console.log('   - Client has not created any surveys yet');
@@ -542,7 +663,7 @@ export const getClientSurveysWithDebug = async (clientId) => {
       console.log('   - Client ID might be incorrect');
     }
 
-    return surveys;
+    return normalizedSurveys;
   } catch (error) {
     console.error('❌ [DEBUG_CLIENT_SURVEYS] Error in debug function:', error);
     console.error('📋 [DEBUG_CLIENT_SURVEYS] Full error details:', {
@@ -570,7 +691,8 @@ const surveysService = {
   deleteSurvey,
   generateSurveyToken,
   getSurveyWithDetails,
-  getClientSurveysWithDebug // Add the new debug function
+  getClientSurveysWithDebug,
+  normalizeSurveyQuestions 
 };
 
 export default surveysService;

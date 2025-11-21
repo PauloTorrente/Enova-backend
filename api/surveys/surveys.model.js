@@ -18,9 +18,50 @@ const Survey = sequelize.define('Survey', {
   questions: {
     type: DataTypes.JSON,
     allowNull: false,
+    get() {
+      const rawValue = this.getDataValue('questions');
+      try {
+        // If it's a string, parse to object
+        if (typeof rawValue === 'string') {
+          return JSON.parse(rawValue);
+        }
+        // If it's already an object, return directly
+        return rawValue;
+      } catch (error) {
+        console.error('Error parsing questions in getter:', error);
+        return [];
+      }
+    },
+    set(value) {
+      // Always ensures saving as stringified JSON
+      if (typeof value === 'string') {
+        try {
+          // If it's already a JSON string, validate before saving
+          const parsed = JSON.parse(value);
+          this.setDataValue('questions', value); // Keep as string
+        } catch (error) {
+          // If not valid JSON, try to convert
+          this.setDataValue('questions', JSON.stringify(value));
+        }
+      } else {
+        // If it's object/array, convert to JSON string
+        this.setDataValue('questions', JSON.stringify(value));
+      }
+    },
     validate: {
       isValidQuestions(value) {
-        if (!Array.isArray(value)) {
+        let questionsToValidate = value;
+        
+        // Se for string, parseia para validar
+        if (typeof questionsToValidate === 'string') {
+          try {
+            questionsToValidate = JSON.parse(questionsToValidate);
+          } catch (error) {
+            throw new Error('Invalid JSON format for questions');
+          }
+        }
+        
+        if (!Array.isArray(questionsToValidate)) {
           throw new Error('Questions must be an array');
         }
         
@@ -31,7 +72,7 @@ const Survey = sequelize.define('Survey', {
           unrestricted: { min: 0, max: Infinity }
         };
         
-        for (const question of value) {
+        for (const question of questionsToValidate) {
           if (!question.type || !question.question || !question.questionId) {
             throw new Error('Each question must have type, question, and questionId');
           }

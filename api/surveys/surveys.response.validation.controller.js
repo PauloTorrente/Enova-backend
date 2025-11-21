@@ -1,6 +1,31 @@
 import * as surveysService from './surveys.service.js';
 import Survey from './surveys.model.js';
 
+// Helper function to normalize survey questions
+const normalizeSurveyQuestions = (survey) => {
+  let questions = survey.questions;
+  
+  // If questions is string, parse to object
+  if (typeof questions === 'string') {
+    try {
+      questions = JSON.parse(questions);
+    } catch (error) {
+      console.error('Error parsing questions:', error);
+      questions = [];
+    }
+  }
+  
+  // Ensure it's an array
+  if (!Array.isArray(questions)) {
+    questions = [];
+  }
+  
+  return {
+    ...survey,
+    questions: questions
+  };
+};
+
 // Submit responses to a survey using access token
 export const respondToSurveyByToken = async (req, res) => {
   try {
@@ -25,16 +50,19 @@ export const respondToSurveyByToken = async (req, res) => {
     console.log(`👤 User ID: ${req.user?.userId || 'Anonymous'}`);
     console.log(`📋 Response Count: ${Array.isArray(req.body) ? req.body.length : 'Invalid'}`);
     
-    // VALIDAÇÃO DO SELECTION LIMIT
+    // VALIDATE SELECTION LIMIT
     console.log('🔍 Validating survey responses...');
     
-    // Buscar detalhes da enquete para validação
+    // Get survey details for validation with proper question normalization
     const surveyDetails = await Survey.findByPk(survey.id);
-    const questions = Array.isArray(surveyDetails.questions) 
-      ? surveyDetails.questions 
-      : JSON.parse(surveyDetails.questions || '[]');
+    
+    // Normalize questions to ensure proper parsing
+    const normalizedSurvey = normalizeSurveyQuestions(surveyDetails);
+    const questions = normalizedSurvey.questions;
 
-    // Validar cada resposta
+    console.log(`📊 Questions to validate: ${questions.length}`);
+    
+    // Validate each response
     for (const responseItem of req.body) {
       const question = questions.find(q => 
         q.questionId === responseItem.questionId || q.id === responseItem.questionId
@@ -47,28 +75,32 @@ export const respondToSurveyByToken = async (req, res) => {
         });
       }
 
-      // VALIDAÇÃO DO SELECTION LIMIT
+      // SELECTION LIMIT VALIDATION
       if (question.type === 'multiple' && 
-          question.multipleSelections === 'yes' && 
+          (question.multipleSelections === 'yes' || question.multipleSelections === true) && 
           question.selectionLimit) {
         
         console.log(`🔍 Validating selection limit for ${question.questionId}:`, {
           limit: question.selectionLimit,
           selected: Array.isArray(responseItem.answer) ? responseItem.answer.length : 0,
-          questionText: question.question
+          questionText: question.question,
+          selectionLimitType: typeof question.selectionLimit
         });
 
-        if (Array.isArray(responseItem.answer) && responseItem.answer.length > question.selectionLimit) {
-          console.error(`❌ Selection limit exceeded: ${responseItem.answer.length} > ${question.selectionLimit}`);
+        // Ensure selectionLimit is a number
+        const selectionLimit = Number(question.selectionLimit);
+        
+        if (Array.isArray(responseItem.answer) && responseItem.answer.length > selectionLimit) {
+          console.error(`❌ Selection limit exceeded: ${responseItem.answer.length} > ${selectionLimit}`);
           return res.status(400).json({
-            message: `Question "${question.question}" allows maximum ${question.selectionLimit} selection(s). You selected ${responseItem.answer.length}.`
+            message: `Question "${question.question}" allows maximum ${selectionLimit} selection(s). You selected ${responseItem.answer.length}.`
           });
         }
       }
 
-      // Validação para seleção única com array
+      // Validation for single selection with array
       if (question.type === 'multiple' && 
-          question.multipleSelections === 'no' && 
+          (question.multipleSelections === 'no' || question.multipleSelections === false) && 
           Array.isArray(responseItem.answer)) {
         console.error(`❌ Single selection question received array: ${question.questionId}`);
         return res.status(400).json({ 
@@ -76,7 +108,7 @@ export const respondToSurveyByToken = async (req, res) => {
         });
       }
 
-      // Validação básica de opções para múltipla escolha
+      // Basic options validation for multiple choice
       if (question.type === 'multiple' && Array.isArray(responseItem.answer)) {
         for (const answer of responseItem.answer) {
           if (!question.options.includes(answer)) {
@@ -118,13 +150,13 @@ export const validateSurveyResponses = async (surveyId, responses) => {
     throw new Error('Survey not found');
   }
 
-  const questions = Array.isArray(surveyDetails.questions) 
-    ? surveyDetails.questions 
-    : JSON.parse(surveyDetails.questions || '[]');
+  // Normalize questions to ensure proper parsing
+  const normalizedSurvey = normalizeSurveyQuestions(surveyDetails);
+  const questions = normalizedSurvey.questions;
 
   const validationErrors = [];
 
-  // Validar cada resposta
+  // Validate each response
   for (const responseItem of responses) {
     const question = questions.find(q => 
       q.questionId === responseItem.questionId || q.id === responseItem.questionId
@@ -135,26 +167,29 @@ export const validateSurveyResponses = async (surveyId, responses) => {
       continue;
     }
 
-    // VALIDAÇÃO DO SELECTION LIMIT
+    // SELECTION LIMIT VALIDATION
     if (question.type === 'multiple' && 
-        question.multipleSelections === 'yes' && 
+        (question.multipleSelections === 'yes' || question.multipleSelections === true) && 
         question.selectionLimit) {
       
-      if (Array.isArray(responseItem.answer) && responseItem.answer.length > question.selectionLimit) {
+      // Ensure selectionLimit is a number
+      const selectionLimit = Number(question.selectionLimit);
+      
+      if (Array.isArray(responseItem.answer) && responseItem.answer.length > selectionLimit) {
         validationErrors.push(
-          `Question "${question.question}" allows maximum ${question.selectionLimit} selection(s). You selected ${responseItem.answer.length}.`
+          `Question "${question.question}" allows maximum ${selectionLimit} selection(s). You selected ${responseItem.answer.length}.`
         );
       }
     }
 
-    // Validação para seleção única com array
+    // Validation for single selection with array
     if (question.type === 'multiple' && 
-        question.multipleSelections === 'no' && 
+        (question.multipleSelections === 'no' || question.multipleSelections === false) && 
         Array.isArray(responseItem.answer)) {
       validationErrors.push(`Question "${question.question}" only accepts a single answer`);
     }
 
-    // Validação básica de opções para múltipla escolha
+    // Basic options validation for multiple choice
     if (question.type === 'multiple' && Array.isArray(responseItem.answer)) {
       for (const answer of responseItem.answer) {
         if (!question.options.includes(answer)) {
@@ -168,6 +203,7 @@ export const validateSurveyResponses = async (surveyId, responses) => {
     }
   }
 
+  console.log(`📊 Validation completed: ${validationErrors.length} errors found`);
   return validationErrors;
 };
 
