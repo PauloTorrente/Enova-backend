@@ -371,7 +371,10 @@ export const getSurveyByAccessToken = async (accessToken, clientId = null) => {
 
     // Find the survey
     console.log('💾 [GET_SURVEY_BY_TOKEN] Executing database query...');
-    const survey = await Survey.findOne({ where: whereConditions });
+    const survey = await Survey.findOne({ 
+      where: whereConditions,
+      raw: false
+    });
 
     if (!survey) {
       console.log('❌ [GET_SURVEY_BY_TOKEN] Survey not found or access denied');
@@ -393,14 +396,29 @@ export const getSurveyByAccessToken = async (accessToken, clientId = null) => {
     // Normalize questions before returning
     const normalizedSurvey = normalizeSurveyQuestions(survey);
     
+    // Return the normalized survey as plain object with proper questions structure
+    const result = {
+      id: normalizedSurvey.id,
+      title: normalizedSurvey.title,
+      description: normalizedSurvey.description,
+      questions: normalizedSurvey.questions,
+      expirationTime: normalizedSurvey.expirationTime,
+      status: normalizedSurvey.status,
+      accessToken: normalizedSurvey.accessToken,
+      clientId: normalizedSurvey.clientId,
+      responseLimit: normalizedSurvey.responseLimit,
+      createdAt: normalizedSurvey.createdAt,
+      updatedAt: normalizedSurvey.updatedAt
+    };
+    
     console.log('🔄 [GET_SURVEY_BY_TOKEN] Questions normalized successfully');
     console.log('📊 [GET_SURVEY_BY_TOKEN] Sample question after normalization:', {
-      questionId: normalizedSurvey.questions?.[0]?.questionId,
-      selectionLimit: normalizedSurvey.questions?.[0]?.selectionLimit,
-      typeofSelectionLimit: typeof normalizedSurvey.questions?.[0]?.selectionLimit
+      questionId: result.questions?.[0]?.questionId,
+      selectionLimit: result.questions?.[0]?.selectionLimit,
+      typeofSelectionLimit: typeof result.questions?.[0]?.selectionLimit
     });
 
-    return normalizedSurvey;
+    return result;
   } catch (error) {
     console.error('❌ [GET_SURVEY_BY_TOKEN] Error fetching survey by token:', error);
     console.error('📋 [GET_SURVEY_BY_TOKEN] Error details:', {
