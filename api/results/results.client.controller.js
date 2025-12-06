@@ -1,11 +1,201 @@
 import * as resultsService from './results.service.js';
 import Survey from '../surveys/surveys.model.js';
-import { verifyClientAccess } from './results.access.service.js';
+import { verifyClientAccess, verifyClientAccessWithPrivileges } from './results.access.service.js';
 import { processSurveyAnalytics } from './results.analytics.core.service.js'; 
 import User from '../users/users.model.js';
 import Result from './results.model.js';
+import Client from '../client/client.model.js';
+import { sequelize } from '../../config/database.js';
 
-// Get all responses for a survey
+// Get ALL surveys from ALL clients - EXCLUSIVE FOR CLIENT_ADMIN
+export const getAllSurveys = async (req, res) => {
+  try {
+    console.log('📋 [ADMIN] Client admin requesting ALL surveys');
+    
+    // Verificar se é realmente um client_admin
+    if (req.client?.role !== 'client_admin') {
+      console.log('❌ [ADMIN] Access denied - not a client_admin');
+      return res.status(403).json({ 
+        message: 'Access denied. Admin privileges required.',
+        clientRole: req.client?.role 
+      });
+    }
+    
+    // Buscar TODOS os surveys com informações do cliente
+    const surveys = await Survey.findAll({
+      include: [{
+        model: Client,
+        as: 'client',
+        attributes: ['id', 'companyName', 'contactEmail', 'contactName', 'industry']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    console.log(`✅ [ADMIN] Found ${surveys.length} surveys from all clients`);
+    
+    // Formatar resposta
+    const formattedSurveys = surveys.map(survey => ({
+      id: survey.id,
+      title: survey.title,
+      description: survey.description,
+      status: survey.status,
+      responseLimit: survey.responseLimit,
+      expirationTime: survey.expirationTime,
+      createdAt: survey.createdAt,
+      updatedAt: survey.updatedAt,
+      client: survey.client ? {
+        id: survey.client.id,
+        companyName: survey.client.companyName,
+        contactEmail: survey.client.contactEmail,
+        contactName: survey.client.contactName,
+        industry: survey.client.industry
+      } : null,
+      questionsCount: survey.questions ? 
+        (typeof survey.questions === 'string' ? JSON.parse(survey.questions).length : survey.questions.length) 
+        : 0
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      message: 'All surveys retrieved successfully',
+      surveys: formattedSurveys,
+      metadata: {
+        totalSurveys: surveys.length,
+        clientAdmin: {
+          id: req.client.id,
+          companyName: req.client.companyName,
+          role: req.client.role
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ [ADMIN] Error fetching all surveys:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch all surveys',
+      error: error.message,
+      debug: process.env.NODE_ENV === 'development' ? {
+        errorName: error.name,
+        adminId: req.client?.id
+      } : undefined
+    });
+  }
+};
+
+// Dashboard do Client Admin - ESTATÍSTICAS GERAIS
+export const getAdminDashboard = async (req, res) => {
+  try {
+    console.log('📊 [ADMIN_DASHBOARD] Client admin requesting dashboard');
+    
+    if (req.client?.role !== 'client_admin') {
+      return res.status(403).json({ message: 'Admin privileges required' });
+    }
+    
+    // Estatísticas gerais
+    const totalSurveys = await Survey.count();
+    const totalClients = await Client.count();
+    const totalResponses = await Result.count();
+    const totalUsers = await User.count();
+    
+    // Surveys mais recentes
+    const recentSurveys = await Survey.findAll({
+      limit: 10,
+      order: [['createdAt', 'DESC']],
+      include: [{
+        model: Client,
+        as: 'client',
+        attributes: ['companyName']
+      }]
+    });
+    
+    // Clientes mais ativos (com mais surveys)
+    const activeClients = await Client.findAll({
+      attributes: [
+        'id', 'companyName', 'contactEmail',
+        [sequelize.fn('COUNT', sequelize.col('surveys.id')), 'surveyCount']
+      ],
+      include: [{
+        model: Survey,
+        as: 'surveys',
+        attributes: []
+      }],
+      group: ['Client.id'],
+      order: [[sequelize.fn('COUNT', sequelize.col('surveys.id')), 'DESC']],
+      limit: 5
+    });
+    
+    // Surveys com mais respostas
+    const popularSurveys = await Survey.findAll({
+      attributes: [
+        'id', 'title',
+        [sequelize.fn('COUNT', sequelize.col('results.id')), 'responseCount']
+      ],
+      include: [{
+        model: Result,
+        as: 'results',
+        attributes: []
+      }, {
+        model: Client,
+        as: 'client',
+        attributes: ['companyName']
+      }],
+      group: ['Survey.id', 'client.id'],
+      order: [[sequelize.fn('COUNT', sequelize.col('results.id')), 'DESC']],
+      limit: 5
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Admin dashboard retrieved successfully',
+      dashboard: {
+        statistics: {
+          totalSurveys,
+          totalClients,
+          totalResponses,
+          totalUsers,
+          averageResponsesPerSurvey: totalSurveys > 0 ? (totalResponses / totalSurveys).toFixed(1) : 0,
+          averageSurveysPerClient: totalClients > 0 ? (totalSurveys / totalClients).toFixed(1) : 0
+        },
+        recentSurveys: recentSurveys.map(s => ({
+          id: s.id,
+          title: s.title,
+          clientCompany: s.client?.companyName,
+          createdAt: s.createdAt,
+          status: s.status
+        })),
+        activeClients: activeClients.map(c => ({
+          id: c.id,
+          companyName: c.companyName,
+          contactEmail: c.contactEmail,
+          surveyCount: c.dataValues.surveyCount
+        })),
+        popularSurveys: popularSurveys.map(s => ({
+          id: s.id,
+          title: s.title,
+          clientCompany: s.client?.companyName,
+          responseCount: s.dataValues.responseCount
+        })),
+        clientAdmin: {
+          id: req.client.id,
+          companyName: req.client.companyName,
+          role: req.client.role
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ [ADMIN_DASHBOARD] Error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch admin dashboard',
+      error: error.message 
+    });
+  }
+};
+
+// ==============================================
+// FUNÇÕES EXISTENTES - MODIFICADAS COM PRIVILÉGIOS
+// ==============================================
+
+// Get all responses for a survey - AGORA COM VERIFICAÇÃO DE PRIVILÉGIOS
 export const getResponsesBySurvey = async (req, res) => {
   try {
     const { surveyId } = req.params;
@@ -14,7 +204,9 @@ export const getResponsesBySurvey = async (req, res) => {
       return res.status(400).json({ message: 'Survey ID required' });
     }
     
-    await verifyClientAccess(surveyId, req.client?.id);
+    // USAR A NOVA FUNÇÃO COM PRIVILÉGIOS
+    await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
+    
     const responses = await resultsService.getResponsesBySurvey(surveyId);
     
     if (responses.length === 0) {
@@ -24,22 +216,29 @@ export const getResponsesBySurvey = async (req, res) => {
     return res.status(200).json({
       message: 'Responses fetched successfully!',
       responses: responses,
+      metadata: {
+        clientRole: req.client?.role,
+        hasAdminPrivileges: req.client?.role === 'client_admin'
+      }
     });
   } catch (error) {
     const status = error.message.includes('Access denied') ? 403 : 500;
     return res.status(status).json({
       message: error.message,
       error: error.message,
+      clientRole: req.client?.role
     });
   }
 };
 
-// Get responses for specific question
+// Get responses for specific question - AGORA COM VERIFICAÇÃO DE PRIVILÉGIOS
 export const getResponsesByQuestion = async (req, res) => {
   try {
     const { surveyId, question } = req.params;
     
-    await verifyClientAccess(surveyId, req.client?.id);
+    // USAR A NOVA FUNÇÃO COM PRIVILÉGIOS
+    await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
+    
     const responses = await resultsService.getResponsesByQuestion(surveyId, question);
     
     if (responses.length === 0) {
@@ -49,26 +248,31 @@ export const getResponsesByQuestion = async (req, res) => {
     return res.status(200).json({
       message: 'Responses for the question fetched successfully!',
       responses: responses,
+      metadata: {
+        clientRole: req.client?.role,
+        hasAdminPrivileges: req.client?.role === 'client_admin'
+      }
     });
   } catch (error) {
     const status = error.message.includes('Access denied') ? 403 : 500;
     return res.status(status).json({
       message: error.message,
       error: error.message,
+      clientRole: req.client?.role
     });
   }
 };
 
-// Get responses with user details - UPDATED VERSION WITH DEBUG LOGS AND CORRECTED METADATA
+// Get responses with user details - AGORA COM VERIFICAÇÃO DE PRIVILÉGIOS
 export const getSurveyResponsesWithUserDetails = async (req, res) => {
   const { surveyId } = req.params;
   
   try {
     console.log(`🔍 [CONTROLLER] Starting getSurveyResponsesWithUserDetails for survey: ${surveyId}`);
-    console.log(`👤 [CONTROLLER] Client making request:`, req.client?.id);
+    console.log(`👤 [CONTROLLER] Client making request:`, req.client?.id, 'Role:', req.client?.role);
     
-    // Verify client has access to this survey
-    await verifyClientAccess(surveyId, req.client?.id);
+    // USAR A NOVA FUNÇÃO COM PRIVILÉGIOS
+    await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
     
     console.log(`✅ [CONTROLLER] Access verified, fetching responses from service...`);
     
@@ -158,7 +362,9 @@ export const getSurveyResponsesWithUserDetails = async (req, res) => {
         totalUsers: totalUsers, // Total number of unique users who responded
         responsesPerUser: totalUsers > 0 ? (totalResponses / totalUsers).toFixed(1) : 0, // Average responses per user
         surveyId: surveyId,
-        clientId: req.client?.id
+        clientId: req.client?.id,
+        clientRole: req.client?.role,
+        hasAdminPrivileges: req.client?.role === 'client_admin'
       }
     });
   } catch (error) {
@@ -176,51 +382,72 @@ export const getSurveyResponsesWithUserDetails = async (req, res) => {
       debug: process.env.NODE_ENV === 'development' ? {
         surveyId,
         clientId: req.client?.id,
+        clientRole: req.client?.role,
         errorName: error.name
       } : undefined
     });
   }
 };
 
-// Get detailed analytics with demographic segmentation
+// Get detailed analytics with demographic segmentation - AGORA COM PRIVILÉGIOS
 export const getSurveyAnalytics = async (req, res) => {
   try {
     const { surveyId } = req.params;
     const clientId = req.client?.id;
+    const clientRole = req.client?.role;
     
-    console.log(`📊 [ANALYTICS] Getting analytics for survey ${surveyId}, client ${clientId}`);
+    console.log(`📊 [ANALYTICS] Getting analytics for survey ${surveyId}, client ${clientId}, role ${clientRole}`);
     
     if (!clientId) {
       console.error('❌ [ANALYTICS] Client ID missing');
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Check if survey belongs to client
-    console.log(`🔍 [ANALYTICS] Verifying survey ownership...`);
-    const survey = await Survey.findOne({ 
-      where: { id: surveyId, clientId }
-    });
+    // Verificar acesso com privilégios
+    console.log(`🔍 [ANALYTICS] Verifying survey access with privileges...`);
+    let survey;
+    
+    if (clientRole === 'client_admin') {
+      // Admin pode acessar qualquer survey
+      survey = await Survey.findByPk(surveyId);
+    } else {
+      // Cliente normal só acessa seus próprios surveys
+      survey = await Survey.findOne({ 
+        where: { id: surveyId, clientId }
+      });
+    }
     
     if (!survey) {
-      console.error(`❌ [ANALYTICS] Survey ${surveyId} not found or access denied for client ${clientId}`);
+      console.error(`❌ [ANALYTICS] Survey ${surveyId} not found or access denied`);
       return res.status(404).json({ message: 'Survey not found or access denied' });
     }
 
     console.log(`✅ [ANALYTICS] Survey found: "${survey.title}" (ID: ${survey.id})`);
     console.log(`📋 [ANALYTICS] Survey details:`, {
+      clientId: survey.clientId,
       questionsCount: survey.questions?.length || 0,
       status: survey.status,
-      expirationTime: survey.expirationTime
+      expirationTime: survey.expirationTime,
+      accessedByAdmin: clientRole === 'client_admin'
     });
     
     // Process analytics using the analytics service
     console.log(`🔄 [ANALYTICS] Processing analytics data...`);
     const analyticsData = await processSurveyAnalytics(survey);
     
+    // Adicionar informação sobre quem está acessando
+    analyticsData.accessInfo = {
+      accessedByClientId: clientId,
+      accessedByRole: clientRole,
+      isAdminAccess: clientRole === 'client_admin',
+      surveyOwnerClientId: survey.clientId
+    };
+    
     console.log(`🎉 [ANALYTICS] Analytics processed successfully for survey ${surveyId}`);
     console.log(`📈 [ANALYTICS] Analytics summary:`, {
       totalRespondents: analyticsData.summary?.totalRespondents,
-      demographicSummary: analyticsData.summary?.demographicSummary
+      demographicSummary: analyticsData.summary?.demographicSummary,
+      accessedByAdmin: clientRole === 'client_admin'
     });
     
     res.status(200).json(analyticsData);
@@ -231,7 +458,8 @@ export const getSurveyAnalytics = async (req, res) => {
       name: error.name,
       message: error.message,
       surveyId: req.params.surveyId,
-      clientId: req.client?.id
+      clientId: req.client?.id,
+      clientRole: req.client?.role
     });
     
     res.status(500).json({ 
@@ -239,22 +467,24 @@ export const getSurveyAnalytics = async (req, res) => {
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       debug: process.env.NODE_ENV === 'development' ? {
         errorName: error.name,
-        surveyId: req.params.surveyId
+        surveyId: req.params.surveyId,
+        clientId: req.client?.id,
+        clientRole: req.client?.role
       } : undefined
     });
   }
 };
 
-// Get survey results with user scores - NEW FUNCTION FOR CLIENT ADMIN
+// Get survey results with user scores - AGORA COM VERIFICAÇÃO DE PRIVILÉGIOS
 export const getSurveyResultsWithScores = async (req, res) => {
   const { surveyId } = req.params;
   
   try {
     console.log(`🎯 [SCORES] Starting getSurveyResultsWithScores for survey: ${surveyId}`);
-    console.log(`👤 [SCORES] Client admin making request:`, req.client?.id);
+    console.log(`👤 [SCORES] Client making request:`, req.client?.id, 'Role:', req.client?.role);
     
-    // Verify client has access to this survey
-    await verifyClientAccess(surveyId, req.client?.id);
+    // USAR A NOVA FUNÇÃO COM PRIVILÉGIOS
+    await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
     
     console.log(`✅ [SCORES] Access verified, fetching responses with scores...`);
     
@@ -307,7 +537,8 @@ export const getSurveyResultsWithScores = async (req, res) => {
       totalUsers: totalUsers,
       totalResponses: totalResponses,
       averageScore: averageScore.toFixed(2),
-      usersWithScores: uniqueUsers.length
+      usersWithScores: uniqueUsers.length,
+      clientRole: req.client?.role
     });
 
     console.log(`🎉 [SCORES] Successfully formatted ${formatted.length} responses with scores`);
@@ -325,7 +556,8 @@ export const getSurveyResultsWithScores = async (req, res) => {
       metadata: {
         surveyId: surveyId,
         clientId: req.client?.id,
-        clientRole: req.client?.role
+        clientRole: req.client?.role,
+        hasAdminPrivileges: req.client?.role === 'client_admin'
       }
     });
   } catch (error) {
@@ -334,7 +566,8 @@ export const getSurveyResultsWithScores = async (req, res) => {
       name: error.name,
       message: error.message,
       surveyId: surveyId,
-      clientId: req.client?.id
+      clientId: req.client?.id,
+      clientRole: req.client?.role
     });
     
     const status = error.message.includes('Access denied') ? 403 : 500;
@@ -351,14 +584,14 @@ export const getSurveyResultsWithScores = async (req, res) => {
   }
 };
 
-// Award points to user who responded to survey - NEW FUNCTION FOR CLIENT ADMIN
+// Award points to user who responded to survey - AGORA COM VERIFICAÇÃO DE PRIVILÉGIOS
 export const awardPointsToUser = async (req, res) => {
   try {
     const { surveyId, userId } = req.params;
     const { points } = req.body;
     
     console.log(`🎯 [AWARD] Starting awardPointsToUser for survey: ${surveyId}, user: ${userId}`);
-    console.log(`👤 [AWARD] Client admin:`, req.client?.id, 'Points:', points);
+    console.log(`👤 [AWARD] Client:`, req.client?.id, 'Role:', req.client?.role, 'Points:', points);
     
     // Basic validation
     if (!points || typeof points !== 'number') {
@@ -368,8 +601,8 @@ export const awardPointsToUser = async (req, res) => {
       });
     }
     
-    // Verify client has access to this survey
-    await verifyClientAccess(surveyId, req.client?.id);
+    // USAR A NOVA FUNÇÃO COM PRIVILÉGIOS
+    await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
     
     console.log(`✅ [AWARD] Survey access verified`);
 
@@ -425,6 +658,7 @@ export const awardPointsToUser = async (req, res) => {
         clientId: req.client?.id,
         companyName: req.client?.companyName,
         role: req.client?.role,
+        isAdmin: req.client?.role === 'client_admin',
         timestamp: new Date().toISOString()
       }
     });
@@ -438,7 +672,8 @@ export const awardPointsToUser = async (req, res) => {
       message: error.message,
       surveyId: req.params.surveyId,
       userId: req.params.userId,
-      clientId: req.client?.id
+      clientId: req.client?.id,
+      clientRole: req.client?.role
     });
     
     const status = error.message.includes('Access denied') ? 403 : 500;
@@ -449,7 +684,8 @@ export const awardPointsToUser = async (req, res) => {
       debug: process.env.NODE_ENV === 'development' ? {
         errorName: error.name,
         surveyId: req.params.surveyId,
-        userId: req.params.userId
+        userId: req.params.userId,
+        clientRole: req.client?.role
       } : undefined
     });
   }
@@ -457,10 +693,13 @@ export const awardPointsToUser = async (req, res) => {
 
 // Export all controller functions
 export default {
+  // Funções originais
   getResponsesBySurvey,
   getResponsesByQuestion,
   getSurveyResponsesWithUserDetails,
   getSurveyAnalytics,
   getSurveyResultsWithScores,  
-  awardPointsToUser           
+  awardPointsToUser,
+  getAllSurveys,
+  getAdminDashboard
 };
