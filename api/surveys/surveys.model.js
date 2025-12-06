@@ -33,18 +33,14 @@ const Survey = sequelize.define('Survey', {
       }
     },
     set(value) {
-      // Always ensures saving as stringified JSON
       if (typeof value === 'string') {
         try {
-          // If it's already a JSON string, validate before saving
-          const parsed = JSON.parse(value);
-          this.setDataValue('questions', value); // Keep as string
+          JSON.parse(value);
+          this.setDataValue('questions', value);
         } catch (error) {
-          // If not valid JSON, try to convert
           this.setDataValue('questions', JSON.stringify(value));
         }
       } else {
-        // If it's object/array, convert to JSON string
         this.setDataValue('questions', JSON.stringify(value));
       }
     },

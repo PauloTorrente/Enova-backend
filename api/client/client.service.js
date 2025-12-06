@@ -6,6 +6,7 @@ import Client from './client.model.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { Op } from 'sequelize';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -282,4 +283,125 @@ export const getClientById = async (id) => {
     console.error(`❌ [SERVICE - GET_BY_ID] Erro na busca: ${error.message}`);
     throw error;
   }
+};
+
+// Password reset functions
+export const requestPasswordReset = async (contactEmail) => {
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Buscando cliente por email:', contactEmail);
+  
+  const client = await Client.findOne({ where: { contactEmail } });
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Cliente encontrado:', client ? 'SIM' : 'NÃO');
+  
+  // Always return success even if client not found (security best practice)
+  if (!client) {
+    console.log('🟡 [SERVICE - REQUEST_PASSWORD_RESET] Email não encontrado, mas retornando sucesso por segurança');
+    return;
+  }
+  
+  // Generate reset token
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Gerando token de reset...');
+  const resetToken = crypto.randomBytes(20).toString('hex');
+  const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+  
+  // Save token to client
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Salvando token no cliente...');
+  client.resetPasswordToken = resetToken;
+  client.resetPasswordExpires = resetTokenExpiry;
+  await client.save();
+  
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Token salvo com expiração:', resetTokenExpiry);
+
+  // Send reset email
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Preparando email de reset...');
+  const templatePath = path.join(__dirname, '../../assets/templates/passwordResetTemplateClient.html');
+  console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Caminho do template:', templatePath);
+  
+  if (!fs.existsSync(templatePath)) {
+    console.error('🔴 [SERVICE - REQUEST_PASSWORD_RESET] Template de email não encontrado! Usando template padrão...');
+    // Fallback to simple email if template not found
+    const resetUrl = `https://enova-pulse-rwpd.vercel.app/reset-password?token=${resetToken}`;
+    
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: contactEmail,
+      subject: 'Password Reset Request',
+      text: `You requested a password reset. Please use the following link to reset your password: ${resetUrl}\n\nThis link will expire in 1 hour.`,
+      html: `<p>You requested a password reset. Please use the following link to reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link will expire in 1 hour.</p>`,
+    });
+  } else {
+    let emailTemplate = fs.readFileSync(templatePath, 'utf-8');
+    const resetUrl = `https://enova-pulse-rwpd.vercel.app/reset-password?token=${resetToken}`;
+    emailTemplate = emailTemplate.replace('{{resetUrl}}', resetUrl);
+    emailTemplate = emailTemplate.replace('{{companyName}}', client.companyName);
+
+    console.log('🔵 [SERVICE - REQUEST_PASSWORD_RESET] Configurando email...');
+    console.log('   - FROM:', process.env.EMAIL_USER);
+    console.log('   - TO:', contactEmail);
+    console.log('   - SUBJECT: Password Reset Request');
+    console.log('   - URL:', resetUrl);
+
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: contactEmail,
+        subject: 'Password Reset Request',
+        html: emailTemplate,
+      });
+      console.log('🟢 [SERVICE - REQUEST_PASSWORD_RESET] Email enviado com sucesso!');
+    } catch (emailError) {
+      console.error('🔴 [SERVICE - REQUEST_PASSWORD_RESET] Erro ao enviar email:', emailError.message);
+      throw new Error('Failed to send password reset email');
+    }
+  }
+  
+  console.log('🟢 [SERVICE - REQUEST_PASSWORD_RESET] Solicitação de reset processada');
+};
+
+export const validatePasswordResetToken = async (token) => {
+  console.log('🔵 [SERVICE - VALIDATE_PASSWORD_RESET_TOKEN] Validando token:', token ? '***TOKEN_PRESENTE***' : 'TOKEN_AUSENTE');
+  
+  const client = await Client.findOne({
+    where: {
+      resetPasswordToken: token,
+      resetPasswordExpires: { [Op.gt]: new Date() }
+    }
+  });
+  
+  console.log('🔵 [SERVICE - VALIDATE_PASSWORD_RESET_TOKEN] Cliente encontrado:', client ? 'SIM' : 'NÃO');
+  
+  return !!client; // Return true if client exists with valid token
+};
+
+export const resetPasswordWithToken = async (token, newPassword) => {
+  console.log('🔵 [SERVICE - RESET_PASSWORD_WITH_TOKEN] Buscando cliente com token válido...');
+  
+  const client = await Client.findOne({
+    where: {
+      resetPasswordToken: token,
+      resetPasswordExpires: { [Op.gt]: new Date() }
+    }
+  });
+  
+  console.log('🔵 [SERVICE - RESET_PASSWORD_WITH_TOKEN] Cliente encontrado:', client ? 'SIM' : 'NÃO');
+  
+  if (!client) {
+    console.log('🔴 [SERVICE - RESET_PASSWORD_WITH_TOKEN] Token inválido ou expirado');
+    throw new Error('Invalid or expired reset token');
+  }
+  
+  // Hash new password
+  console.log('🔵 [SERVICE - RESET_PASSWORD_WITH_TOKEN] Criando hash da nova senha...');
+  const hashedPassword = await bcryptjs.hash(newPassword, 10);
+  
+  // Update password and clear reset token
+  console.log('🔵 [SERVICE - RESET_PASSWORD_WITH_TOKEN] Atualizando senha e limpando token...');
+  client.password = hashedPassword;
+  client.resetPasswordToken = null;
+  client.resetPasswordExpires = null;
+  client.loginAttempts = 0; // Reset login attempts
+  await client.save();
+  
+  console.log('🟢 [SERVICE - RESET_PASSWORD_WITH_TOKEN] Senha atualizada com sucesso para cliente ID:', client.id);
+  
+  return { clientId: client.id };
 };

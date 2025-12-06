@@ -1,4 +1,3 @@
-// client.model.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../../config/database.js';
 import bcryptjs from 'bcryptjs';
@@ -59,6 +58,50 @@ const Client = sequelize.define('Client', {
     allowNull: true,
     field: 'confirmation_token'
   },
+  resetPasswordToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'reset_password_token'
+  },
+  resetPasswordExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'reset_password_expires'
+  },
+  role: {
+    type: DataTypes.STRING,
+    defaultValue: 'client',
+    allowNull: false,
+    validate: {
+      isIn: [['client', 'client_admin']]
+    },
+    field: 'role'
+  },
+  permissions: {
+    type: DataTypes.JSON,
+    defaultValue: {
+      canAwardPoints: false,
+      canViewAllSurveys: false,
+      canViewUserScores: false,
+      canManageUsers: false
+    },
+    field: 'permissions'
+  },
+  loginAttempts: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'login_attempts'
+  },
+  lastLogin: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'last_login'
+  },
+  lastFailedAttempt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'last_failed_attempt'
+  }
 }, {
   tableName: 'clients',
   timestamps: true,
@@ -92,7 +135,8 @@ Client.register = async function(clientData) {
     ...clientData,
     password: hashedPassword,
     confirmationToken,
-    isConfirmed: false
+    isConfirmed: false,
+    role: 'client'
   });
 };
 

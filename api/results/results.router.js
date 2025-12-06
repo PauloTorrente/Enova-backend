@@ -2,6 +2,7 @@
 import express from 'express'; 
 import * as resultsController from './results.controller.js'; 
 import { authenticateAdmin, authenticateUser, authenticateClient } from '../../middlewares/auth.middleware.js'; 
+import { authenticateClientAdmin } from '../../middlewares/client.auth.middleware.js'; 
 
 const router = express.Router(); 
 
@@ -35,11 +36,11 @@ router.get('/client/survey/:surveyId/question/:question', authenticateClient, re
 
 // Route for clients to get responses with user details
 router.get('/client/survey/:surveyId/with-users', authenticateClient, resultsController.getSurveyResponsesWithUserDetails);
-
-// CORRIJA ESTA LINHA - use resultsController em vez de resultsClientController
 router.get('/client/survey/:surveyId/analytics', authenticateClient, resultsController.getSurveyAnalytics);
+router.get('/client/survey/:surveyId/results-with-scores', authenticateClientAdmin, resultsController.getSurveyResultsWithScores);
+router.post('/client/survey/:surveyId/user/:userId/award-points', authenticateClientAdmin, resultsController.awardPointsToUser);
 
-// ROTA DE TESTE - para verificar se o router está funcionando
+
 router.get('/test', (req, res) => {
   res.json({ message: 'Results router is working!' });
 });

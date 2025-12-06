@@ -165,7 +165,7 @@ export const refreshClientToken = async (req, res) => {
     };
 
     // Generate new access token (1 hour expiration)
-    const newAccessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const newAccessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '12h' });
     
     // Generate new refresh token (7 days expiration)
     const newRefreshToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });

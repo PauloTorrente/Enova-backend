@@ -2,6 +2,8 @@ import * as resultsService from './results.service.js';
 import Survey from '../surveys/surveys.model.js';
 import { verifyClientAccess } from './results.access.service.js';
 import { processSurveyAnalytics } from './results.analytics.core.service.js'; 
+import User from '../users/users.model.js';
+import Result from './results.model.js';
 
 // Get all responses for a survey
 export const getResponsesBySurvey = async (req, res) => {
@@ -243,10 +245,222 @@ export const getSurveyAnalytics = async (req, res) => {
   }
 };
 
+// Get survey results with user scores - NEW FUNCTION FOR CLIENT ADMIN
+export const getSurveyResultsWithScores = async (req, res) => {
+  const { surveyId } = req.params;
+  
+  try {
+    console.log(`🎯 [SCORES] Starting getSurveyResultsWithScores for survey: ${surveyId}`);
+    console.log(`👤 [SCORES] Client admin making request:`, req.client?.id);
+    
+    // Verify client has access to this survey
+    await verifyClientAccess(surveyId, req.client?.id);
+    
+    console.log(`✅ [SCORES] Access verified, fetching responses with scores...`);
+    
+    // Get responses with user details from service layer
+    const responses = await resultsService.getSurveyResponsesWithUserDetails(surveyId);
+    
+    if (!responses || responses.length === 0) {
+      console.log(`❌ [SCORES] No responses found for survey: ${surveyId}`);
+      return res.status(404).json({ message: 'No responses found for this survey.' });
+    }
+
+    console.log(`✅ [SCORES] Retrieved ${responses.length} responses with scores`);
+
+    // Format responses including user scores
+    console.log('🔄 [SCORES] Formatting responses with scores...');
+    const formatted = responses.map(r => {
+      return {
+        id: r.id,
+        question: r.question,
+        answer: r.answer,
+        user: r.user ? {
+          id: r.user.id,
+          name: `${r.user.firstName} ${r.user.lastName}`,
+          email: r.user.email,
+          score: r.user.score || 0,  // 👈 INCLUDES USER SCORE
+          city: r.user.city,
+          area: r.user.residentialArea,
+          gender: r.user.gender,
+          age: r.user.age
+        } : null
+      };
+    });
+
+    // Calculate statistics with scores
+    const uniqueUserIds = [...new Set(responses.map(r => r.userId))];
+    const totalUsers = uniqueUserIds.length;
+    const totalResponses = responses.length;
+    
+    // Calculate average score
+    const usersWithScores = responses
+      .filter(r => r.user && r.user.score !== undefined)
+      .map(r => r.user);
+    
+    const uniqueUsers = [...new Map(usersWithScores.map(u => [u.id, u])).values()];
+    const averageScore = uniqueUsers.length > 0 
+      ? uniqueUsers.reduce((sum, u) => sum + (u.score || 0), 0) / uniqueUsers.length 
+      : 0;
+
+    console.log(`📊 [SCORES] Score statistics:`, {
+      totalUsers: totalUsers,
+      totalResponses: totalResponses,
+      averageScore: averageScore.toFixed(2),
+      usersWithScores: uniqueUsers.length
+    });
+
+    console.log(`🎉 [SCORES] Successfully formatted ${formatted.length} responses with scores`);
+    
+    // Return successful response with scores data
+    res.status(200).json({
+      message: 'Responses with user scores fetched successfully!',
+      responses: formatted,
+      statistics: {
+        totalResponses: totalResponses,
+        totalUsers: totalUsers,
+        averageScore: parseFloat(averageScore.toFixed(2)),
+        usersWithScores: uniqueUsers.length
+      },
+      metadata: {
+        surveyId: surveyId,
+        clientId: req.client?.id,
+        clientRole: req.client?.role
+      }
+    });
+  } catch (error) {
+    console.error('❌ [SCORES] Error in getSurveyResultsWithScores:', error);
+    console.error('🔍 [SCORES] Error details:', {
+      name: error.name,
+      message: error.message,
+      surveyId: surveyId,
+      clientId: req.client?.id
+    });
+    
+    const status = error.message.includes('Access denied') ? 403 : 500;
+    res.status(status).json({ 
+      message: error.message,
+      error: error.message,
+      debug: process.env.NODE_ENV === 'development' ? {
+        surveyId,
+        clientId: req.client?.id,
+        clientRole: req.client?.role,
+        errorName: error.name
+      } : undefined
+    });
+  }
+};
+
+// Award points to user who responded to survey - NEW FUNCTION FOR CLIENT ADMIN
+export const awardPointsToUser = async (req, res) => {
+  try {
+    const { surveyId, userId } = req.params;
+    const { points } = req.body;
+    
+    console.log(`🎯 [AWARD] Starting awardPointsToUser for survey: ${surveyId}, user: ${userId}`);
+    console.log(`👤 [AWARD] Client admin:`, req.client?.id, 'Points:', points);
+    
+    // Basic validation
+    if (!points || typeof points !== 'number') {
+      console.log(`❌ [AWARD] Invalid points value:`, points);
+      return res.status(400).json({ 
+        message: 'Points must be a valid number' 
+      });
+    }
+    
+    // Verify client has access to this survey
+    await verifyClientAccess(surveyId, req.client?.id);
+    
+    console.log(`✅ [AWARD] Survey access verified`);
+
+    // Check if user responded to this survey
+    const userResponse = await Result.findOne({
+      where: { surveyId, userId }
+    });
+    
+    if (!userResponse) {
+      console.log(`❌ [AWARD] User ${userId} did not respond to survey ${surveyId}`);
+      return res.status(404).json({ 
+        message: 'User did not respond to this survey' 
+      });
+    }
+
+    console.log(`✅ [AWARD] User response verified`);
+
+    // Get user to update score
+    const user = await User.findByPk(userId);
+    if (!user) {
+      console.log(`❌ [AWARD] User ${userId} not found`);
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user score
+    const currentScore = user.score || 0;
+    const newScore = currentScore + points;
+    
+    console.log(`📊 [AWARD] Updating score for user ${userId}: ${currentScore} + ${points} = ${newScore}`);
+    
+    await user.update({ score: newScore });
+    
+    console.log(`✅ [AWARD] Score updated successfully`);
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: `Points awarded successfully!`,
+      pointsAwarded: points,
+      user: {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        previousScore: currentScore,
+        newScore: newScore,
+        totalChange: points
+      },
+      survey: {
+        id: surveyId,
+        responseId: userResponse.id
+      },
+      awardedBy: {
+        clientId: req.client?.id,
+        companyName: req.client?.companyName,
+        role: req.client?.role,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+    console.log(`🎉 [AWARD] Points awarded successfully to user ${userId}`);
+
+  } catch (error) {
+    console.error('❌ [AWARD] Error awarding points:', error);
+    console.error('🔍 [AWARD] Error details:', {
+      name: error.name,
+      message: error.message,
+      surveyId: req.params.surveyId,
+      userId: req.params.userId,
+      clientId: req.client?.id
+    });
+    
+    const status = error.message.includes('Access denied') ? 403 : 500;
+    res.status(status).json({ 
+      success: false,
+      message: 'Error awarding points',
+      error: error.message,
+      debug: process.env.NODE_ENV === 'development' ? {
+        errorName: error.name,
+        surveyId: req.params.surveyId,
+        userId: req.params.userId
+      } : undefined
+    });
+  }
+};
+
 // Export all controller functions
 export default {
   getResponsesBySurvey,
   getResponsesByQuestion,
   getSurveyResponsesWithUserDetails,
-  getSurveyAnalytics
+  getSurveyAnalytics,
+  getSurveyResultsWithScores,  
+  awardPointsToUser           
 };
