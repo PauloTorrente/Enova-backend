@@ -2,7 +2,7 @@ import * as surveysService from './surveys.service.js';
 import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 
-// Import divided controllers - UPDATED WITH NEW CONTROLLER
+// Import divided controllers
 import { createSurvey, getActiveSurveys } from './surveys.creation.controller.js';
 import { respondToSurveyByToken, validateSurveyResponses } from './surveys.response.validation.controller.js';
 import { deleteSurvey, getSurveyByAccessToken } from './surveys.management.controller.js';
@@ -11,7 +11,7 @@ import { getMySurveys, getClientSurveyStats } from './surveys.client.detailed.co
 import { debugMySurveys, debugSurveyDetails, healthCheckClientSurveys } from './surveys.client.debug.controller.js';
 import { respondToSurveyPermissive } from './surveys.permissive.response.controller.js';
 
-// Re-export all controllers - UPDATED
+// Re-export all controllers
 export {
   createSurvey,
   getActiveSurveys,
@@ -28,119 +28,152 @@ export {
   respondToSurveyPermissive
 };
 
-// Additional functions that might be needed for compatibility
-// Get all active surveys (public endpoint) - Kept for compatibility
+// Get all active surveys (public endpoint) - Compatibility function
 export const getActiveSurveysLegacy = async (req, res) => {
   try {
-    console.log('🔍 Fetching Active Surveys...');
+    console.log('[GET] Active Surveys');
     const surveys = await surveysService.getActiveSurveys();
-    console.log(`✅ Found ${surveys.length} Active Surveys`);
+    console.log(`[SUCCESS] Found ${surveys.length} active surveys`);
     res.status(200).json({ surveys });
   } catch (error) {
-    console.error('❌ Get Active Surveys Error:', error);
+    console.error('[ERROR] Get Active Surveys:', error.message);
     res.status(500).json({ message: 'Failed to fetch surveys' });
   }
 };
 
-// Submit responses to a survey using access token - Kept for compatibility
+// Submit responses to a survey using access token - Compatibility function
 export const respondToSurveyByTokenLegacy = async (req, res) => {
   try {
-    console.log('📝 Survey Response Submission Started');
+    console.log('[POST] Survey Response Submission');
     const { accessToken } = req.query;
     
-    // Check if access token is provided
     if (!accessToken) {
-      console.error('❌ Access Token Missing');
-      return res.status(400).json({ message: 'Token required' });
+      console.error('[ERROR] Access token missing');
+      return res.status(400).json({ message: 'Access token is required' });
     }
 
-    console.log(`🔍 Looking for Survey with Token: ${accessToken}`);
+    console.log(`[INFO] Survey token: ${accessToken}`);
     const survey = await surveysService.getSurveyByAccessToken(accessToken);
     
     if (!survey) {
-      console.error('❌ Survey Not Found for Token:', accessToken);
+      console.error(`[ERROR] Survey not found for token: ${accessToken}`);
       return res.status(404).json({ message: 'Survey not found' });
     }
 
-    console.log(`✅ Survey Found: ${survey.title} (ID: ${survey.id})`);
-    console.log(`👤 User ID: ${req.user?.userId || 'Anonymous'}`);
-    console.log(`📋 Response Count: ${Array.isArray(req.body) ? req.body.length : 'Invalid'}`);
+    console.log(`[INFO] Survey found: "${survey.title}" (ID: ${survey.id})`);
+    
+    // Get user ID - support both user and client authentication
+    const userId = req.user?.userId || req.user?.id || req.userId || req.user?.clientId || null;
+    
+    if (!userId) {
+      console.error('[ERROR] Authentication required - no user ID found');
+      return res.status(401).json({ 
+        message: 'Authentication required. Please log in to respond to this survey.' 
+      });
+    }
+    
+    console.log(`[INFO] User authenticated: ${userId} (${req.user?.clientId ? 'client' : 'user'})`);
+    console.log(`[INFO] Processing ${Array.isArray(req.body) ? req.body.length : 0} responses`);
     
     // Save the survey responses
-    await surveysService.saveResponse(survey.id, req.user?.userId, req.body);
+    await surveysService.saveResponse(survey.id, userId, req.body);
     
-    console.log('✅ Responses Saved Successfully');
-    res.status(200).json({ message: 'Responses saved' });
+    console.log(`[SUCCESS] Responses saved for survey ${survey.id}`);
+    res.status(200).json({ 
+      message: 'Responses saved successfully',
+      surveyId: survey.id,
+      userId: userId
+    });
   } catch (error) {
-    console.error('❌ Submit Response Error:', error);
-    res.status(500).json({ message: error.message });
+    console.error('[ERROR] Submit Response:', error.message);
+    
+    // Return appropriate status code based on error type
+    let statusCode = 500;
+    let errorMessage = error.message;
+    
+    if (error.message.includes('Authentication') || error.message.includes('User ID')) {
+      statusCode = 401;
+      errorMessage = 'Authentication required to submit responses.';
+    } else if (error.message.includes('already responded')) {
+      statusCode = 400;
+      errorMessage = 'You have already responded to this survey.';
+    } else if (error.message.includes('not found')) {
+      statusCode = 404;
+    } else if (error.message.includes('Invalid') || error.message.includes('validation')) {
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      message: errorMessage,
+      ...(process.env.NODE_ENV === 'development' && { 
+        details: error.message
+      })
+    });
   }
 };
 
-// Delete a survey (admin only) - Kept for compatibility
+// Delete a survey - Compatibility function
 export const deleteSurveyLegacy = async (req, res) => {
   try {
     const surveyId = req.params.id;
-    console.log(`🗑️ Deleting Survey ID: ${surveyId}`);
+    console.log(`[DELETE] Survey ID: ${surveyId}`);
     
     await surveysService.deleteSurvey(surveyId);
     
-    console.log(`✅ Survey ${surveyId} Deleted Successfully`);
-    res.status(200).json({ message: 'Survey deleted' });
+    console.log(`[SUCCESS] Survey ${surveyId} deleted`);
+    res.status(200).json({ message: 'Survey deleted successfully' });
   } catch (error) {
-    console.error('❌ Delete Survey Error:', error);
+    console.error('[ERROR] Delete Survey:', error.message);
     res.status(500).json({ message: 'Failed to delete survey' });
   }
 };
 
-// Get survey details by access token (public endpoint) - Kept for compatibility
+// Get survey details by access token - Compatibility function
 export const getSurveyByAccessTokenLegacy = async (req, res) => {
   try {
     const { accessToken } = req.query;
-    console.log(`🔍 Fetching Survey by Token: ${accessToken}`);
+    console.log(`[GET] Survey by token: ${accessToken}`);
     
     if (!accessToken) {
-      return res.status(400).json({ message: 'Token required' });
+      return res.status(400).json({ message: 'Access token is required' });
     }
 
     const survey = await surveysService.getSurveyByAccessToken(accessToken);
     
     if (!survey) {
-      console.error('❌ Survey Not Found for Token:', accessToken);
+      console.error(`[ERROR] Survey not found for token: ${accessToken}`);
       return res.status(404).json({ message: 'Survey not found' });
     }
 
-    console.log(`✅ Survey Found: ${survey.title}`);
+    console.log(`[SUCCESS] Survey retrieved: "${survey.title}"`);
     res.status(200).json(survey);
   } catch (error) {
-    console.error('❌ Get Survey Error:', error);
+    console.error('[ERROR] Get Survey:', error.message);
     res.status(500).json({ message: 'Failed to fetch survey' });
   }
 };
 
-// Get client's surveys with response counts - Kept for compatibility
+// Get client's surveys with response counts - Compatibility function
 export const getClientSurveysLegacy = async (req, res) => {
   try {
     const clientId = req.client?.id;
-    console.log(`🔍 [GET_CLIENT_SURVEYS] Fetching Surveys for Client ID: ${clientId}`);
+    console.log(`[GET] Client surveys for ID: ${clientId}`);
     
     if (!clientId) {
-      console.error('❌ [GET_CLIENT_SURVEYS] Client ID Missing');
+      console.error('[ERROR] Client ID missing');
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    console.log(`🔍 [GET_CLIENT_SURVEYS] Querying Database for Client ${clientId}...`);
     const surveys = await Survey.findAll({ 
       where: { clientId }
     });
     
-    console.log(`📊 [GET_CLIENT_SURVEYS] Found ${surveys.length} Surveys for Client ${clientId}`);
+    console.log(`[INFO] Found ${surveys.length} surveys for client ${clientId}`);
     
     // Add response count for each survey
     const surveysWithStats = await Promise.all(
       surveys.map(async survey => {
         const responseCount = await Result.count({ where: { surveyId: survey.id } });
-        console.log(`   📈 [GET_CLIENT_SURVEYS] Survey ${survey.id}: ${responseCount} Responses`);
         return {
           ...survey.toJSON(),
           responseCount
@@ -148,11 +181,10 @@ export const getClientSurveysLegacy = async (req, res) => {
       })
     );
     
-    console.log(`✅ [GET_CLIENT_SURVEYS] Returning ${surveysWithStats.length} Surveys with Statistics`);
+    console.log(`[SUCCESS] Returning ${surveysWithStats.length} surveys with statistics`);
     res.status(200).json({ surveys: surveysWithStats });
   } catch (error) {
-    console.error('❌ [GET_CLIENT_SURVEYS] Get Client Surveys Error:', error);
-    console.error('❌ [GET_CLIENT_SURVEYS] Error Stack:', error.stack);
+    console.error('[ERROR] Get Client Surveys:', error.message);
     res.status(500).json({ 
       message: 'Failed to fetch surveys',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -160,7 +192,7 @@ export const getClientSurveysLegacy = async (req, res) => {
   }
 };
 
-// Default export for compatibility - UPDATED
+// Default export for compatibility
 export default {
   createSurvey,
   getActiveSurveys,

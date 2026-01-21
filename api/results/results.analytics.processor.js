@@ -99,20 +99,58 @@ export const processDemographicData = (analytics, results) => {
   });
 };
 
-// Process multiple choice question analytics
+// Helper function to extract answer value for analytics
+const extractAnswerValue = (answer) => {
+  // Se a resposta for um objeto com "other" option
+  if (typeof answer === 'object' && answer !== null) {
+    // Para múltipla seleção com "outros"
+    if (answer.selectedOptions && Array.isArray(answer.selectedOptions)) {
+      // Verificar se inclui "other"
+      if (answer.selectedOptions.includes('other') && answer.otherText) {
+        const otherOption = `Outro: ${answer.otherText}`;
+        const otherOptions = answer.selectedOptions.filter(opt => opt !== 'other');
+        return [...otherOptions, otherOption];
+      }
+      return answer.selectedOptions;
+    }
+    // Para seleção única com "outros"
+    else if (answer.selectedOption === 'other' && answer.otherText) {
+      return `Outro: ${answer.otherText}`;
+    }
+    // Para seleção única regular
+    else if (answer.selectedOption) {
+      return answer.selectedOption;
+    }
+  }
+  
+  // Se for string que já contém "Outro: "
+  if (typeof answer === 'string' && answer.startsWith('Outro: ')) {
+    return answer;
+  }
+  
+  // Para respostas normais (array ou string)
+  return answer;
+};
+
+// Process multiple choice question analytics with "other" option support
 const processMultipleChoiceQuestion = (question, questionResults) => {
   const questionData = {
     questionId: question.questionId,
     question: question.question,
     type: question.type,
+    multipleSelections: question.multipleSelections || 'no',
+    hasOtherOption: question.otherOption || false,
+    otherOptionText: question.otherOptionText || 'Outro (especifique)',
     totalAnswers: questionResults.length,
     options: {},
+    otherResponses: [], 
     demographicBreakdown: {
       byGender: {}, byAgeGroup: {}, byCity: {}, 
       byEducationLevel: {}, byPurchaseResponsibility: {}
     }
   };
 
+  // Inicializar contadores para cada opção (incluindo "outro")
   question.options.forEach(option => {
     questionData.options[option] = {
       count: 0,
@@ -121,61 +159,181 @@ const processMultipleChoiceQuestion = (question, questionResults) => {
         byEducationLevel: {}, byPurchaseResponsibility: {}
       }
     };
+  });
 
-    const optionResponses = questionResults.filter(r => {
-      const answer = r.answer;
-      if (Array.isArray(answer)) {
-        return answer.includes(option);
+  // Adicionar opção "outro" se existir
+  if (questionData.hasOtherOption) {
+    questionData.options[questionData.otherOptionText] = {
+      count: 0,
+      isOtherOption: true,
+      demographics: {
+        byGender: {}, byAgeGroup: {}, byCity: {}, 
+        byEducationLevel: {}, byPurchaseResponsibility: {}
       }
-      return answer === option;
-    });
+    };
+  }
 
-    questionData.options[option].count = optionResponses.length;
-
-    // Process demographics for each option
-    optionResponses.forEach(r => {
-      const user = r.user;
-      if (!user) return;
-
-      // Process gender demographics
-      if (user.gender) {
-        questionData.options[option].demographics.byGender[user.gender] = 
-          (questionData.options[option].demographics.byGender[user.gender] || 0) + 1;
-      }
-
-      // Process age group demographics
-      if (user.age) {
-        let ageGroup = '56+';
-        if (user.age <= 25) ageGroup = '18-25';
-        else if (user.age <= 35) ageGroup = '26-35';
-        else if (user.age <= 45) ageGroup = '36-45';
-        else if (user.age <= 55) ageGroup = '46-55';
+  // Processar cada resposta
+  questionResults.forEach(r => {
+    const answer = r.answer;
+    const user = r.user;
+    
+    // Extrair valor da resposta (lidando com formato "outros")
+    const answerValue = extractAnswerValue(answer);
+    
+    // Para múltipla seleção (array)
+    if (Array.isArray(answerValue)) {
+      answerValue.forEach(option => {
+        // Verificar se é uma resposta de "outro"
+        const isOtherResponse = option.startsWith('Outro: ');
+        const optionKey = isOtherResponse ? questionData.otherOptionText : option;
         
-        questionData.options[option].demographics.byAgeGroup[ageGroup] = 
-          (questionData.options[option].demographics.byAgeGroup[ageGroup] || 0) + 1;
+        // Incrementar contador se a opção existe
+        if (questionData.options[optionKey]) {
+          questionData.options[optionKey].count++;
+          
+          // Processar demografia para esta opção
+          if (user) {
+            processOptionDemographics(questionData.options[optionKey], user);
+          }
+          
+          // Armazenar texto de "outro" se aplicável
+          if (isOtherResponse && questionData.hasOtherOption) {
+            const otherText = option.replace('Outro: ', '');
+            questionData.otherResponses.push({
+              userId: r.userId,
+              otherText: otherText,
+              otherOptions: answerValue.filter(opt => !opt.startsWith('Outro: ')),
+              timestamp: r.createdAt,
+              userInfo: user ? {
+                name: `${user.firstName} ${user.lastName}`,
+                gender: user.gender,
+                age: user.age,
+                city: user.city
+              } : null
+            });
+          }
+        }
+      });
+    } 
+    // Para seleção única (string)
+    else if (typeof answerValue === 'string') {
+      // Verificar se é uma resposta de "outro"
+      const isOtherResponse = answerValue.startsWith('Outro: ');
+      const optionKey = isOtherResponse ? questionData.otherOptionText : answerValue;
+      
+      // Incrementar contador se a opção existe
+      if (questionData.options[optionKey]) {
+        questionData.options[optionKey].count++;
+        
+        // Processar demografia para esta opção
+        if (user) {
+          processOptionDemographics(questionData.options[optionKey], user);
+        }
+        
+        // Armazenar texto de "outro" se aplicável
+        if (isOtherResponse && questionData.hasOtherOption) {
+          const otherText = answerValue.replace('Outro: ', '');
+          questionData.otherResponses.push({
+            userId: r.userId,
+            otherText: otherText,
+            timestamp: r.createdAt,
+            userInfo: user ? {
+              name: `${user.firstName} ${user.lastName}`,
+              gender: user.gender,
+              age: user.age,
+              city: user.city
+            } : null
+          });
+        }
       }
-
-      // Process city demographics
-      if (user.city) {
-        questionData.options[option].demographics.byCity[user.city] = 
-          (questionData.options[option].demographics.byCity[user.city] || 0) + 1;
-      }
-
-      // Process education level demographics
-      if (user.educationLevel) {
-        questionData.options[option].demographics.byEducationLevel[user.educationLevel] = 
-          (questionData.options[option].demographics.byEducationLevel[user.educationLevel] || 0) + 1;
-      }
-
-      // Process purchase responsibility demographics
-      if (user.purchaseResponsibility) {
-        questionData.options[option].demographics.byPurchaseResponsibility[user.purchaseResponsibility] = 
-          (questionData.options[option].demographics.byPurchaseResponsibility[user.purchaseResponsibility] || 0) + 1;
-      }
-    });
+    }
+    
+    // Processar demografia geral para a questão
+    if (user) {
+      processQuestionDemographics(questionData.demographicBreakdown, user);
+    }
   });
 
   return questionData;
+};
+
+// Helper function to process demographics for a specific option
+const processOptionDemographics = (optionData, user) => {
+  // Process gender demographics
+  if (user.gender) {
+    optionData.demographics.byGender[user.gender] = 
+      (optionData.demographics.byGender[user.gender] || 0) + 1;
+  }
+
+  // Process age group demographics
+  if (user.age) {
+    let ageGroup = '56+';
+    if (user.age <= 25) ageGroup = '18-25';
+    else if (user.age <= 35) ageGroup = '26-35';
+    else if (user.age <= 45) ageGroup = '36-45';
+    else if (user.age <= 55) ageGroup = '46-55';
+    
+    optionData.demographics.byAgeGroup[ageGroup] = 
+      (optionData.demographics.byAgeGroup[ageGroup] || 0) + 1;
+  }
+
+  // Process city demographics
+  if (user.city) {
+    optionData.demographics.byCity[user.city] = 
+      (optionData.demographics.byCity[user.city] || 0) + 1;
+  }
+
+  // Process education level demographics
+  if (user.educationLevel) {
+    optionData.demographics.byEducationLevel[user.educationLevel] = 
+      (optionData.demographics.byEducationLevel[user.educationLevel] || 0) + 1;
+  }
+
+  // Process purchase responsibility demographics
+  if (user.purchaseResponsibility) {
+    optionData.demographics.byPurchaseResponsibility[user.purchaseResponsibility] = 
+      (optionData.demographics.byPurchaseResponsibility[user.purchaseResponsibility] || 0) + 1;
+  }
+};
+
+// Helper function to process overall question demographics
+const processQuestionDemographics = (demographicBreakdown, user) => {
+  // Process gender demographics
+  if (user.gender) {
+    demographicBreakdown.byGender[user.gender] = 
+      (demographicBreakdown.byGender[user.gender] || 0) + 1;
+  }
+
+  // Process age group demographics
+  if (user.age) {
+    let ageGroup = '56+';
+    if (user.age <= 25) ageGroup = '18-25';
+    else if (user.age <= 35) ageGroup = '26-35';
+    else if (user.age <= 45) ageGroup = '36-45';
+    else if (user.age <= 55) ageGroup = '46-55';
+    
+    demographicBreakdown.byAgeGroup[ageGroup] = 
+      (demographicBreakdown.byAgeGroup[ageGroup] || 0) + 1;
+  }
+
+  // Process city demographics
+  if (user.city) {
+    demographicBreakdown.byCity[user.city] = 
+      (demographicBreakdown.byCity[user.city] || 0) + 1;
+  }
+
+  // Process education level demographics
+  if (user.educationLevel) {
+    demographicBreakdown.byEducationLevel[user.educationLevel] = 
+      (demographicBreakdown.byEducationLevel[user.educationLevel] || 0) + 1;
+  }
+
+  // Process purchase responsibility demographics
+  if (user.purchaseResponsibility) {
+    demographicBreakdown.byPurchaseResponsibility[user.purchaseResponsibility] = 
+      (demographicBreakdown.byPurchaseResponsibility[user.purchaseResponsibility] || 0) + 1;
+  }
 };
 
 // Process open-ended question analytics
@@ -259,4 +417,11 @@ export const processQuestionAnalytics = (survey, results, analytics) => {
       return processOpenEndedQuestion(question, questionResults);
     }
   });
+};
+
+// Export helper functions for testing
+export { 
+  extractAnswerValue, 
+  processOptionDemographics, 
+  processQuestionDemographics 
 };

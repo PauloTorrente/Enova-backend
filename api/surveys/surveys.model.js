@@ -48,7 +48,7 @@ const Survey = sequelize.define('Survey', {
       isValidQuestions(value) {
         let questionsToValidate = value;
         
-        // Se for string, parseia para validar
+        // If it's a string, parse to validate
         if (typeof questionsToValidate === 'string') {
           try {
             questionsToValidate = JSON.parse(questionsToValidate);
@@ -89,30 +89,55 @@ const Survey = sequelize.define('Survey', {
             if (question.multipleSelections === 'yes' && question.options.length < 2) {
               throw new Error('Multiple selection questions require at least two options');
             }
+
+            // Validate each option in the multiple choice question
+            question.options.forEach((option, index) => {
+              // Allow both string options and "Other" option objects
+              if (typeof option !== 'string' && typeof option !== 'object') {
+                throw new Error(`Option ${index + 1} must be a string or an object`);
+              }
+              
+              // If it's an object, validate it as an "Other" option
+              if (typeof option === 'object') {
+                if (option.type !== 'other') {
+                  throw new Error(`Option ${index + 1}: Custom option objects must have type: "other"`);
+                }
+                if (!option.label || typeof option.label !== 'string') {
+                  throw new Error(`Option ${index + 1}: Other option must have a string label`);
+                }
+                // Set default value for requiresTextInput if not provided
+                if (option.requiresTextInput === undefined) {
+                  option.requiresTextInput = true;
+                }
+                if (typeof option.requiresTextInput !== 'boolean') {
+                  throw new Error(`Option ${index + 1}: requiresTextInput must be a boolean`);
+                }
+              }
+            });
+
+            // Validate selectionLimit for multiple selection questions
             if (question.multipleSelections === 'yes') {
               if (question.selectionLimit) {
                 if (typeof question.selectionLimit !== 'number' || question.selectionLimit < 1) {
                   throw new Error('selectionLimit must be a positive number');
                 }
-                if (question.selectionLimit > question.options.length) {
-                  throw new Error('selectionLimit cannot exceed the number of available options');
+                
+                // Count only non-"Other" options for validation (strings)
+                const nonOtherOptionsCount = question.options.filter(opt => typeof opt === 'string').length;
+                
+                if (question.selectionLimit > nonOtherOptionsCount) {
+                  throw new Error('selectionLimit cannot exceed the number of standard (non-Other) options');
                 }
                 if (question.selectionLimit === 1) {
                   throw new Error('For single selection, set multipleSelections to "no" instead of using selectionLimit');
                 }
               }
             } else {
-              // Para seleção única, não deve ter selectionLimit
+              // For single selection questions, selectionLimit should not be set
               if (question.selectionLimit) {
                 throw new Error('selectionLimit is only allowed for multiple selection questions (multipleSelections: "yes")');
               }
             }
-
-            question.options.forEach(option => {
-              if (typeof option !== 'string') {
-                throw new Error('All options must be strings');
-              }
-            });
           }
           
           if (question.imagem && typeof question.imagem !== 'string') {
@@ -151,17 +176,10 @@ const Survey = sequelize.define('Survey', {
   expirationTime: {
     type: DataTypes.DATE,
     allowNull: false,
-    // Keep as camelCase since database column is camelCase
   },
   status: {
     type: DataTypes.ENUM('active', 'expired'),
     defaultValue: 'active',
-  },
-  accessToken: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-    // Keep as camelCase since database column is camelCase
   },
   clientId: {
     type: DataTypes.INTEGER,
@@ -170,35 +188,39 @@ const Survey = sequelize.define('Survey', {
       model: 'clients',
       key: 'id'
     },
-    field: 'client_id' // Map to snake_case column
+    field: 'client_id'
   },
   responseLimit: {
     type: DataTypes.INTEGER,
     allowNull: true,
     defaultValue: null,
-    field: 'response_limit', // Map to snake_case column
+    field: 'response_limit',
     validate: {
       min: 1
     }
   },
-  // Add explicit timestamp fields to match mixed database naming
+  // CAMPO NOVO ADICIONADO
+  accessToken: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,
-    field: 'created_at', // Map to snake_case column
+    field: 'created_at',
     defaultValue: DataTypes.NOW
   },
   updatedAt: {
     type: DataTypes.DATE,
     allowNull: false,
-    field: 'updated_at', // Map to snake_case column
+    field: 'updated_at',
     defaultValue: DataTypes.NOW
   }
 }, {
   tableName: 'surveys',
-  timestamps: true, // Enable timestamps
-  underscored: false, // DISABLE this since we have mixed naming
-  // We'll handle field mapping manually for each field
+  timestamps: true,
+  underscored: false,
 });
 
 // Define the association between Survey and Result

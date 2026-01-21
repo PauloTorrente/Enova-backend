@@ -1,65 +1,63 @@
 import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 
+// Diagnostic mode: set to true for detailed logs, false for clean logs
+const DIAGNOSTIC_MODE = process.env.NODE_ENV === 'development';
+
+const log = (prefix, message, data = null) => {
+  if (DIAGNOSTIC_MODE) {
+    if (data) {
+      console.log(`${prefix} ${message}`, data);
+    } else {
+      console.log(`${prefix} ${message}`);
+    }
+  } else {
+    // In production, only show simplified logs
+    if (prefix.includes('❌') || prefix.includes('⚠️')) {
+      console.log(`${prefix} ${message}`);
+    }
+  }
+};
+
 // Special debug endpoint for troubleshooting client surveys
 export const debugMySurveys = async (req, res) => {
-  console.log('=== 🐛 [DEBUG_MY_SURVEYS] DEBUG ENDPOINT CALLED ===');
+  log('🔍', 'Debug endpoint: Client surveys check');
   
   try {
     const clientId = req.client?.id;
     
-    console.log('🐛 [DEBUG_MY_SURVEYS] Client Authentication Debug:', {
-      clientId: clientId,
-      fullClientObject: req.client,
-      userObject: req.user,
-      headers: {
-        authorization: req.headers.authorization,
-        'content-type': req.headers['content-type']
-      }
-    });
-
     if (!clientId) {
-      console.error('🐛 [DEBUG_MY_SURVEYS] NO CLIENT ID FOUND IN REQUEST');
+      log('❌', 'No client ID found in request');
       return res.status(403).json({ 
         success: false,
-        message: 'No client ID found in request',
-        debug: {
+        message: 'Authentication required',
+        debug: DIAGNOSTIC_MODE ? {
           clientInRequest: req.client,
-          userInRequest: req.user,
-          headers: req.headers
-        }
+          userInRequest: req.user
+        } : undefined
       });
     }
 
-    // Test 1: Simple count of surveys for this client
-    console.log('🐛 [DEBUG_MY_SURVEYS] Test 1: Counting Surveys...');
-    const surveyCount = await Survey.count({ where: { clientId } });
-    console.log(`🐛 [DEBUG_MY_SURVEYS] Survey Count for Client ${clientId}: ${surveyCount}`);
+    log('📊', `Processing request for client: ${clientId}`);
 
-    // Test 2: Retrieve sample of surveys with field mapping fix
-    console.log('🐛 [DEBUG_MY_SURVEYS] Test 2: Finding Surveys with Field Mapping...');
+    // Count surveys for this client
+    const surveyCount = await Survey.count({ where: { clientId } });
+    log('✅', `Found ${surveyCount} surveys for client ${clientId}`);
+
+    // Retrieve sample of surveys
     const surveys = await Survey.findAll({ 
       where: { clientId },
-      order: [['created_at', 'DESC']], // Use snake_case for database column
+      order: [['created_at', 'DESC']],
       raw: true,
       limit: 5
     });
     
-    console.log(`🐛 [DEBUG_MY_SURVEYS] Found ${surveys.length} Surveys Sample:`, 
-      surveys.map(survey => ({
-        id: survey.id,
-        title: survey.title,
-        clientId: survey.clientId,
-        status: survey.status,
-        createdAt: survey.created_at // Use actual database column name
-      }))
-    );
+    log('✅', `Retrieved ${surveys.length} survey samples`);
 
-    // Test 3: Check database structure and available fields
-    console.log('🐛 [DEBUG_MY_SURVEYS] Test 3: Checking Database Structure...');
+    // Check database structure
     const sampleSurvey = surveys.length > 0 ? surveys[0] : null;
     
-    // Return comprehensive debug information
+    // Return diagnostic information
     res.json({
       success: true,
       clientId,
@@ -67,48 +65,39 @@ export const debugMySurveys = async (req, res) => {
       surveysSample: surveys.map(survey => ({
         id: survey.id,
         title: survey.title,
-        clientId: survey.clientId,
         status: survey.status,
-        hasQuestions: !!survey.questions,
-        questionsType: typeof survey.questions,
-        createdAt: survey.created_at // Show actual database value
+        questionsCount: survey.questions ? (Array.isArray(survey.questions) ? survey.questions.length : 'N/A') : 0,
+        createdAt: survey.created_at
       })),
-      databaseInfo: {
-        totalSurveysInDatabase: await Survey.count(),
-        sampleSurveyStructure: sampleSurvey ? Object.keys(sampleSurvey) : 'No surveys found'
-      },
-      authentication: {
-        clientId: req.client?.id,
-        clientEmail: req.client?.email,
-        clientCompany: req.client?.companyName
-      },
-      fieldMapping: {
-        note: 'Using created_at for database column, mapped to createdAt in model',
-        actualDatabaseColumn: 'created_at',
-        modelField: 'createdAt'
-      }
+      diagnostics: DIAGNOSTIC_MODE ? {
+        databaseInfo: {
+          totalSurveysInDatabase: await Survey.count(),
+          sampleSurveyFields: sampleSurvey ? Object.keys(sampleSurvey).length : 'No surveys'
+        },
+        authentication: {
+          clientId: req.client?.id,
+          clientEmail: req.client?.email
+        }
+      } : undefined
     });
     
   } catch (error) {
-    console.error('🐛 [DEBUG_MY_SURVEYS] Debug Endpoint Error:', error);
+    log('❌', 'Debug endpoint error:', error.message);
     res.status(500).json({
       success: false,
-      error: error.message,
-      stack: error.stack,
-      clientId: req.client?.id
+      error: 'Internal server error',
+      details: DIAGNOSTIC_MODE ? error.message : undefined
     });
   }
 };
 
 // Enhanced debug function for detailed survey analysis
 export const debugSurveyDetails = async (req, res) => {
-  console.log('=== 🔍 [DEBUG_SURVEY_DETAILS] DETAILED SURVEY ANALYSIS ===');
+  log('🔍', 'Detailed survey analysis requested');
   
   try {
     const clientId = req.client?.id;
     const surveyId = req.params.surveyId;
-    
-    console.log('🔍 [DEBUG_SURVEY_DETAILS] Parameters:', { clientId, surveyId });
 
     if (!clientId) {
       return res.status(403).json({ 
@@ -124,14 +113,16 @@ export const debugSurveyDetails = async (req, res) => {
       });
     }
 
+    log('📋', `Analyzing survey ${surveyId} for client ${clientId}`);
+
     // Get detailed survey information
-    console.log('🔍 [DEBUG_SURVEY_DETAILS] Fetching survey details...');
     const survey = await Survey.findOne({ 
       where: { id: surveyId, clientId },
       raw: true
     });
 
     if (!survey) {
+      log('❌', `Survey ${surveyId} not found or access denied`);
       return res.status(404).json({ 
         success: false,
         message: 'Survey not found or access denied'
@@ -139,7 +130,6 @@ export const debugSurveyDetails = async (req, res) => {
     }
 
     // Get response statistics
-    console.log('🔍 [DEBUG_SURVEY_DETAILS] Fetching response statistics...');
     const responseCount = await Result.count({ where: { surveyId } });
     
     // Parse questions for analysis
@@ -154,12 +144,12 @@ export const debugSurveyDetails = async (req, res) => {
       type: question.type,
       multipleSelections: question.multipleSelections,
       selectionLimit: question.selectionLimit,
-      optionsCount: question.options?.length || 0,
-      hasAnswerLength: !!question.answerLength,
-      hasMedia: !!(question.imagem || question.video)
+      optionsCount: question.options?.length || 0
     }));
 
-    // Return comprehensive debug analysis
+    log('✅', `Survey analysis completed: ${questions.length} questions, ${responseCount} responses`);
+
+    // Return comprehensive analysis
     res.json({
       success: true,
       survey: {
@@ -169,9 +159,7 @@ export const debugSurveyDetails = async (req, res) => {
         clientId: survey.clientId,
         expirationTime: survey.expirationTime,
         responseLimit: survey.responseLimit,
-        accessToken: survey.accessToken,
-        createdAt: survey.created_at,
-        updatedAt: survey.updated_at
+        accessToken: survey.accessToken
       },
       statistics: {
         responseCount,
@@ -187,30 +175,28 @@ export const debugSurveyDetails = async (req, res) => {
         summary: {
           multipleChoice: questions.filter(q => q.type === 'multiple').length,
           textQuestions: questions.filter(q => q.type === 'text').length,
-          withSelectionLimit: questions.filter(q => q.selectionLimit).length,
-          withMedia: questions.filter(q => q.imagem || q.video).length
+          withSelectionLimit: questions.filter(q => q.selectionLimit).length
         }
       },
-      databaseInfo: {
-        tableName: 'surveys',
-        clientIdField: 'client_id',
-        timestampFields: ['created_at', 'updated_at']
-      }
+      diagnostics: DIAGNOSTIC_MODE ? {
+        rawQuestionsType: typeof survey.questions,
+        hasQuestions: !!survey.questions
+      } : undefined
     });
     
   } catch (error) {
-    console.error('🔍 [DEBUG_SURVEY_DETAILS] Error:', error);
+    log('❌', 'Survey analysis error:', error.message);
     res.status(500).json({
       success: false,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Failed to analyze survey',
+      details: DIAGNOSTIC_MODE ? error.message : undefined
     });
   }
 };
 
 // Health check for client surveys
 export const healthCheckClientSurveys = async (req, res) => {
-  console.log('=== 🩺 [HEALTH_CHECK] CLIENT SURVEYS HEALTH CHECK ===');
+  log('🩺', 'Client surveys health check');
   
   try {
     const clientId = req.client?.id;
@@ -232,9 +218,11 @@ export const healthCheckClientSurveys = async (req, res) => {
     // Test database connection
     try {
       healthChecks.surveyCount = await Survey.count({ where: { clientId } });
+      log('✅', `Database connection OK. Surveys found: ${healthChecks.surveyCount}`);
     } catch (error) {
       healthChecks.databaseConnection = 'FAILED';
-      healthChecks.issues.push(`Database connection failed: ${error.message}`);
+      healthChecks.issues.push(`Database connection failed`);
+      log('❌', 'Database connection failed:', error.message);
     }
 
     // Check for recent surveys
@@ -253,23 +241,39 @@ export const healthCheckClientSurveys = async (req, res) => {
           status: survey.status,
           createdAt: survey.created_at
         }));
+        
+        log('✅', `Retrieved ${recentSurveys.length} recent surveys`);
       } catch (error) {
-        healthChecks.issues.push(`Failed to fetch recent surveys: ${error.message}`);
+        healthChecks.issues.push(`Failed to fetch recent surveys`);
+        log('⚠️', 'Failed to fetch recent surveys:', error.message);
       }
     }
 
+    const allOk = healthChecks.databaseConnection === 'OK' && healthChecks.issues.length === 0;
+    
     res.json({
       success: true,
       clientId,
-      healthChecks,
+      status: allOk ? 'healthy' : 'issues_detected',
+      healthChecks: {
+        database: healthChecks.databaseConnection,
+        surveyCount: healthChecks.surveyCount,
+        recentSurveysCount: healthChecks.recentSurveys.length,
+        issuesCount: healthChecks.issues.length
+      },
+      details: DIAGNOSTIC_MODE ? {
+        recentSurveys: healthChecks.recentSurveys,
+        issues: healthChecks.issues
+      } : undefined,
       timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    console.error('🩺 [HEALTH_CHECK] Error:', error);
+    log('❌', 'Health check error:', error.message);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: 'Health check failed',
+      details: DIAGNOSTIC_MODE ? error.message : undefined
     });
   }
 };

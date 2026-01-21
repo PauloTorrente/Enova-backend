@@ -3,32 +3,31 @@ import Result from '../results/results.model.js';
 
 // Helper function to normalize survey questions
 const normalizeSurveyQuestions = (survey) => {
+  if (!survey) {
+    console.error('[SURVEY] Error: Survey is null or undefined');
+    return null;
+  }
+  
   let questions = survey.questions;
   
-  console.log('🔄 Normalizing survey questions:', {
-    originalType: typeof questions,
-    isArray: Array.isArray(questions)
-  });
-
   // If questions is a string, parse to object
   if (typeof questions === 'string') {
     try {
-      console.log('📝 Parsing questions from string to object');
       questions = JSON.parse(questions);
     } catch (error) {
-      console.error('❌ Error parsing questions:', error);
+      console.error('[SURVEY] Error parsing questions:', error.message);
       questions = [];
     }
   }
   
   // Ensure it's an array
   if (!Array.isArray(questions)) {
-    console.warn('⚠️ Questions is not an array, converting to empty array');
+    console.warn('[SURVEY] Warning: Questions is not an array, converting to empty array');
     questions = [];
   }
 
   // Process each question to ensure correct types
-  questions = questions.map((question, index) => {
+  questions = questions.map((question) => {
     const normalizedQuestion = { ...question };
     
     // Normalize selectionLimit - convert string to number if necessary
@@ -37,12 +36,11 @@ const normalizeSurveyQuestions = (survey) => {
         const parsedLimit = parseInt(normalizedQuestion.selectionLimit);
         if (!isNaN(parsedLimit)) {
           normalizedQuestion.selectionLimit = parsedLimit;
-          console.log(`✅ Converted selectionLimit from string to number: ${parsedLimit}`);
         }
       }
     }
 
-    // Normalize multipleSelections - ensure consistent boolean/string format
+    // Normalize multipleSelections - ensure consistent format
     if (normalizedQuestion.multipleSelections !== undefined && normalizedQuestion.multipleSelections !== null) {
       if (typeof normalizedQuestion.multipleSelections === 'boolean') {
         normalizedQuestion.multipleSelections = normalizedQuestion.multipleSelections ? 'yes' : 'no';
@@ -51,19 +49,22 @@ const normalizeSurveyQuestions = (survey) => {
       }
     }
 
+    // Normalize otherOption - ensure boolean
+    if (normalizedQuestion.otherOption !== undefined && normalizedQuestion.otherOption !== null) {
+      if (typeof normalizedQuestion.otherOption === 'string') {
+        normalizedQuestion.otherOption = normalizedQuestion.otherOption.toLowerCase() === 'true' || normalizedQuestion.otherOption === '1';
+      }
+    }
+
+    // Ensure default otherOptionText if otherOption is true
+    if (normalizedQuestion.otherOption === true && !normalizedQuestion.otherOptionText) {
+      normalizedQuestion.otherOptionText = 'Other (specify)';
+    }
+
     return normalizedQuestion;
   });
 
-  console.log('✅ Normalized questions structure:', {
-    totalQuestions: questions.length,
-    firstQuestion: questions[0] ? {
-      questionId: questions[0].questionId,
-      type: questions[0].type,
-      multipleSelections: questions[0].multipleSelections,
-      selectionLimit: questions[0].selectionLimit,
-      selectionLimitType: typeof questions[0].selectionLimit
-    } : 'No questions'
-  });
+  console.log(`[SURVEY] Normalized ${questions.length} questions`);
 
   return {
     ...survey,
@@ -94,259 +95,428 @@ function validateAnswerLength(question, answer) {
   }
 }
 
+// Helper function to validate "other" option text length
+function validateOtherTextLength(question, otherText) {
+  const lengthConfigs = {
+    short: { min: 1, max: 100 },
+    medium: { min: 10, max: 300 },
+    long: { min: 50, max: 1000 },
+    unrestricted: { min: 0, max: Infinity }
+  };
+
+  if (question.answerLength && question.type === 'multiple') {
+    const { min, max } = lengthConfigs[question.answerLength] || { min: 0, max: Infinity };
+    
+    if (otherText && otherText.length < min) {
+      throw new Error(`Other text too short. Minimum required: ${min} characters`);
+    }
+
+    if (otherText && otherText.length > max) {
+      throw new Error(`Other text too long. Maximum allowed: ${max} characters`);
+    }
+  }
+}
+
+// Helper function to normalize "other" option responses
+const normalizeOtherOptionResponse = (question, answer) => {
+  // If the question doesn't have "other" option, return answer as is
+  if (!question.otherOption) {
+    return answer;
+  }
+  
+  // If the answer is an object with "other" option structure
+  if (typeof answer === 'object' && (answer.otherText !== undefined || answer.selectedOptions || answer.selectedOption)) {
+    
+    // For multiple selection
+    if (question.multipleSelections === 'yes' && answer.selectedOptions) {
+      const finalAnswer = [...answer.selectedOptions];
+      
+      // If "other" is selected and has text, add as special option
+      if (answer.selectedOptions.includes('other') && answer.otherText && answer.otherText.trim()) {
+        const otherOptionText = question.otherOptionText || 'Other';
+        const combinedText = `${otherOptionText}: ${answer.otherText}`;
+        // Replace 'other' with combined text
+        const index = finalAnswer.indexOf('other');
+        if (index > -1) {
+          finalAnswer[index] = combinedText;
+        }
+      }
+      // If "other" is selected but without text, remove 'other'
+      else if (answer.selectedOptions.includes('other') && (!answer.otherText || !answer.otherText.trim())) {
+        const index = finalAnswer.indexOf('other');
+        if (index > -1) {
+          finalAnswer.splice(index, 1);
+        }
+      }
+      
+      return finalAnswer;
+    } 
+    // For single selection
+    else if (question.multipleSelections === 'no' && answer.selectedOption) {
+      // If "other" is selected and has text
+      if (answer.selectedOption === 'other' && answer.otherText && answer.otherText.trim()) {
+        const otherOptionText = question.otherOptionText || 'Other';
+        return `${otherOptionText}: ${answer.otherText}`;
+      }
+      // If "other" is selected but no text, return the selected option
+      else if (answer.selectedOption === 'other' && (!answer.otherText || !answer.otherText.trim())) {
+        return null;
+      }
+      // If a regular option is selected
+      else {
+        return answer.selectedOption;
+      }
+    }
+  }
+  
+  // If we get here, return answer as is (could be a regular string or array)
+  return answer;
+};
+
+// Main function to submit survey responses
 export const respondToSurveyByToken = async (req, res) => {
   try {
-    console.log('[Survey] Response received');
+    console.log('[SURVEY] Response submission started');
     const { accessToken } = req.query;
-    const userId = req.user?.userId;
-
+    
+    // Get user ID from authentication - SUPPORT BOTH USER AND CLIENT AUTHENTICATION
+    const userId = req.user?.userId || req.user?.id || req.userId || req.user?.clientId || null;
+    
     // Validate required access token
     if (!accessToken) {
-      console.error('❌ Access token missing');
+      console.error('[SURVEY] Error: Access token missing');
       return res.status(400).json({ message: 'Access token is required' });
+    }
+
+    // Validate user ID is present (no anonymous responses allowed)
+    if (!userId) {
+      console.error('[SURVEY] Error: Authentication required');
+      return res.status(401).json({ 
+        message: 'Authentication required. Please log in to respond to this survey.'
+      });
     }
 
     // Find survey by token
     const survey = await Survey.findOne({ where: { accessToken } });
     if (!survey) {
-      console.error('❌ Survey not found');
+      console.error('[SURVEY] Error: Survey not found');
       return res.status(404).json({ message: 'Survey not found' });
     }
 
-    // Normaliza as questions do survey
-    const normalizedSurvey = normalizeSurveyQuestions(survey);
-    const questions = normalizedSurvey.questions;
+    console.log(`[SURVEY] Found: "${survey.title}" (ID: ${survey.id})`);
+    console.log(`[AUTH] User ID: ${userId}`);
 
-    // Check response limit before processing
+    // Normalize survey questions
+    const normalizedSurvey = normalizeSurveyQuestions(survey);
+    if (!normalizedSurvey) {
+      console.error('[SURVEY] Error: Failed to normalize survey');
+      return res.status(500).json({ message: 'Failed to process survey data' });
+    }
+    
+    const questions = normalizedSurvey.questions || [];
+    if (!Array.isArray(questions)) {
+      console.error('[SURVEY] Error: Invalid questions format');
+      return res.status(500).json({ message: 'Invalid survey questions format' });
+    }
+
+    // Check response limit
     const responseCount = await Result.count({ where: { surveyId: survey.id } });
     if (survey.responseLimit !== null && responseCount >= survey.responseLimit) {
-      console.log(`🚫 Survey ${survey.id} reached response limit (${survey.responseLimit})`);
+      console.log(`[SURVEY] Error: Response limit reached (${survey.responseLimit})`);
       return res.status(400).json({ 
         message: 'This survey has reached the maximum response limit.' 
       });
     }
 
-    // Check for duplicate responses from same user
+    // Check for duplicate responses
     const existingResponse = await Result.findOne({
       where: { surveyId: survey.id, userId }
     });
 
     if (existingResponse) {
-      console.log(`⚠️ User ${userId} attempted duplicate response`);
+      console.log(`[SURVEY] Error: Duplicate response attempt by user ${userId}`);
       return res.status(400).json({ message: 'You have already responded to this survey.' });
     }
 
-    // Validate response format is an array
+    // Validate response format
     const response = req.body;
     if (!Array.isArray(response)) {
-      console.error('❌ Invalid response format');
+      console.error('[SURVEY] Error: Invalid response format');
       return res.status(400).json({ message: 'Response should be an array' });
     }
 
-    console.log('🔍 Survey questions structure after normalization:', {
-      totalQuestions: questions.length,
-      questions: questions.map(q => ({
-        questionId: q.questionId,
-        question: q.question,
-        type: q.type,
-        multipleSelections: q.multipleSelections,
-        selectionLimit: q.selectionLimit,
-        selectionLimitType: typeof q.selectionLimit,
-        options: q.options ? q.options.length : 0
-      }))
-    });
+    console.log(`[SURVEY] Processing ${response.length} responses`);
 
     // Process each response item with validation
     const resultEntries = response.map((item, index) => {
-      console.log(`\n📝 Processing response ${index + 1}:`, {
-        questionId: item.questionId,
-        answer: item.answer,
-        answerType: typeof item.answer,
-        isArray: Array.isArray(item.answer)
-      });
-
-      // LÓGICA PERMISSIVA - Tenta encontrar a questão de várias formas
+      // Try to find the question in multiple ways
       let questionObj = questions.find(q => 
         q.questionId === item.questionId || q.id === item.questionId
       );
 
-      // Se não encontrou, tenta por índice numérico
+      // If not found by ID, try by numeric index
       if (!questionObj) {
         const numericId = parseInt(item.questionId);
         if (!isNaN(numericId) && numericId > 0 && numericId <= questions.length) {
           questionObj = questions[numericId - 1];
-          if (questionObj) {
-            console.log(`🔄 Question ID ${item.questionId} mapeado para índice ${numericId - 1}`);
-          }
         }
       }
 
-      // Se ainda não encontrou, tenta buscar por posição no array
+      // If still not found, try to find by position in array
       if (!questionObj && index < questions.length) {
         questionObj = questions[index];
-        if (questionObj) {
-          console.log(`🔄 Usando questão na posição ${index} como fallback`);
-        }
       }
 
       if (!questionObj) {
-        console.error('❌ Question not found for ID:', item.questionId);
-        console.error('🔍 Available questions:', questions.map(q => ({
-          questionId: q.questionId,
-          id: q.id,
-          question: q.question,
-          type: q.type
-        })));
         throw new Error(`Question with ID ${item.questionId} not found`);
       }
 
-      console.log('🎯 Question object found:', {
-        questionId: questionObj.questionId,
-        type: questionObj.type,
-        multipleSelections: questionObj.multipleSelections,
-        selectionLimit: questionObj.selectionLimit,
-        selectionLimitType: typeof questionObj.selectionLimit,
-        options: questionObj.options
-      });
+      const questionId = questionObj.questionId || item.questionId;
+      const questionType = questionObj.type || 'text';
+      const multipleSelections = questionObj.multipleSelections || 'no';
+      const selectionLimit = questionObj.selectionLimit || null;
+      const questionOptions = questionObj.options || [];
+      const hasOtherOption = questionObj.otherOption || false;
+      const otherOptionText = questionObj.otherOptionText || 'Other';
 
-      // Get the actual question text from the survey
-      const questionText = questionObj.question;
+      const questionText = questionObj.question || `Question ${questionId}`;
       
       if (!questionText) {
-        console.error('❌ CRITICAL: questionObj.question is empty!', {
-          questionObj,
-          availableKeys: Object.keys(questionObj)
-        });
-        throw new Error(`Question text not found for question ID ${item.questionId}`);
+        throw new Error(`Question text not found for question ID ${questionId}`);
       }
 
-      console.log(`✅ Found question text: "${questionText}"`);
-
       // Validate answer based on question type
-      if (questionObj.type === 'multiple') {
-        console.log('🔍 Validating multiple choice question:', {
-          multipleSelections: questionObj.multipleSelections,
-          selectionLimit: questionObj.selectionLimit,
-          answer: item.answer
-        });
-
-        // Multiple selection validation
-        if (questionObj.multipleSelections === 'yes') {
-          if (!Array.isArray(item.answer)) {
-            throw new Error(`Question ${item.questionId} requires multiple answers (array)`);
-          }
-          
-          // SELECTION LIMIT VALIDATION - with normalized types
-          if (questionObj.selectionLimit && item.answer.length > questionObj.selectionLimit) {
-            console.log('🚫 Selection limit exceeded:', {
-              limit: questionObj.selectionLimit,
-              selected: item.answer.length,
-              answers: item.answer
-            });
-            throw new Error(
-              `Question "${questionText}" allows maximum ${questionObj.selectionLimit} selection(s). You selected ${item.answer.length}.`
-            );
-          }
-          
-          // Validate each selected option exists in question options
-          item.answer.forEach(ans => {
-            if (!questionObj.options.includes(ans)) {
-              throw new Error(`Invalid option "${ans}" for question ${item.questionId}`);
+      if (questionType === 'multiple') {
+        // Check if question has "other" option
+        if (hasOtherOption === true) {
+          // For multiple selection
+          if (multipleSelections === 'yes') {
+            // If answer is an object with "other" option structure
+            if (typeof item.answer === 'object' && item.answer.selectedOptions !== undefined) {
+              const selectedOptions = item.answer.selectedOptions || [];
+              const otherText = item.answer.otherText || '';
+              
+              // Validate that selectedOptions is an array
+              if (!Array.isArray(selectedOptions)) {
+                throw new Error(`For multiple selection with "other" option, selectedOptions must be an array`);
+              }
+              
+              // Validate selection limit
+              const totalSelections = selectedOptions.length;
+              if (selectionLimit && totalSelections > selectionLimit) {
+                throw new Error(`Question "${questionText}" allows maximum ${selectionLimit} selection(s). You selected ${totalSelections}.`);
+              }
+              
+              // Validate that selected options are valid
+              selectedOptions.forEach(option => {
+                if (option !== 'other' && !questionOptions.includes(option)) {
+                  throw new Error(`Invalid option "${option}" for question "${questionText}"`);
+                }
+              });
+              
+              // If "other" is selected, validate the text
+              if (selectedOptions.includes('other')) {
+                if (!otherText || otherText.trim().length === 0) {
+                  throw new Error(`When selecting "other", you must provide text`);
+                }
+                
+                // Validate "other" text length
+                validateOtherTextLength(questionObj, otherText);
+              }
+              
+              // If no option was selected
+              if (selectedOptions.length === 0) {
+                throw new Error(`You must select at least one option for question "${questionText}"`);
+              }
+              
+              // Normalize answer for saving
+              item.answer = {
+                selectedOptions: selectedOptions,
+                otherText: otherText.trim()
+              };
             }
-          });
-        } 
-        // Single selection validation
-        else {
-          if (Array.isArray(item.answer)) {
-            throw new Error(`Question ${item.questionId} only accepts a single answer`);
+            // If answer is a regular array
+            else if (Array.isArray(item.answer)) {
+              // Validate selection limit
+              if (selectionLimit && item.answer.length > selectionLimit) {
+                throw new Error(
+                  `Question "${questionText}" allows maximum ${selectionLimit} selection(s). You selected ${item.answer.length}.`
+                );
+              }
+              
+              // Validate each selected option
+              item.answer.forEach(ans => {
+                if (ans === 'other' && !hasOtherOption) {
+                  throw new Error(`Option "other" is not available for this question`);
+                }
+                if (ans !== 'other' && !questionOptions.includes(ans)) {
+                  throw new Error(`Invalid option "${ans}" for question "${questionText}"`);
+                }
+              });
+            }
+            else {
+              throw new Error(`Question "${questionText}" requires multiple selections (array)`);
+            }
           }
-          if (!questionObj.options.includes(item.answer)) {
-            throw new Error(`Invalid option "${item.answer}" for question ${item.questionId}`);
+          // For single selection
+          else if (multipleSelections === 'no') {
+            // If answer is an object with "other" option structure
+            if (typeof item.answer === 'object' && item.answer.selectedOption !== undefined) {
+              const selectedOption = item.answer.selectedOption;
+              const otherText = item.answer.otherText || '';
+              
+              if (selectedOption === 'other') {
+                // Validate "other" text if "other" is selected
+                if (!otherText || otherText.trim().length === 0) {
+                  throw new Error(`When selecting "other", you must provide text`);
+                }
+                
+                // Validate "other" text length
+                validateOtherTextLength(questionObj, otherText);
+              } else if (!questionOptions.includes(selectedOption)) {
+                throw new Error(`Invalid option "${selectedOption}" for question "${questionText}"`);
+              }
+            }
+            // If answer is a regular string
+            else if (typeof item.answer === 'string') {
+              if (item.answer === 'other' && !hasOtherOption) {
+                throw new Error(`Option "other" is not available for this question`);
+              }
+              if (item.answer !== 'other' && !questionOptions.includes(item.answer)) {
+                throw new Error(`Invalid option "${item.answer}" for question "${questionText}"`);
+              }
+              
+              if (item.answer === 'other') {
+                throw new Error(`When selecting "other", you must provide text in the otherText field`);
+              }
+            }
+            // If answer is an array (error)
+            else if (Array.isArray(item.answer)) {
+              throw new Error(`Question "${questionText}" only accepts a single answer`);
+            }
+          }
+        }
+        // If question does NOT have "other" option
+        else {
+          // Multiple selection validation
+          if (multipleSelections === 'yes') {
+            if (!Array.isArray(item.answer)) {
+              throw new Error(`Question "${questionText}" requires multiple answers (array)`);
+            }
+            
+            // SELECTION LIMIT VALIDATION
+            if (selectionLimit && item.answer.length > selectionLimit) {
+              throw new Error(
+                `Question "${questionText}" allows maximum ${selectionLimit} selection(s). You selected ${item.answer.length}.`
+              );
+            }
+            
+            // Validate each selected option
+            item.answer.forEach(ans => {
+              if (!questionOptions.includes(ans)) {
+                throw new Error(`Invalid option "${ans}" for question "${questionText}"`);
+              }
+            });
+          } 
+          // Single selection validation
+          else {
+            if (Array.isArray(item.answer)) {
+              throw new Error(`Question "${questionText}" only accepts a single answer`);
+            }
+            if (!questionOptions.includes(item.answer)) {
+              throw new Error(`Invalid option "${item.answer}" for question "${questionText}"`);
+            }
           }
         }
       } else {
-        // Non-multiple question validation (text, etc.)
+        // Non-multiple question validation
         if (Array.isArray(item.answer)) {
-          throw new Error(`Question ${item.questionId} does not accept multiple answers`);
+          throw new Error(`Question "${questionText}" does not accept multiple answers`);
         }
       }
 
       // Validate answer length for text questions
       validateAnswerLength(questionObj, item.answer);
 
-      // Create the result entry with the actual question text
-      const resultEntry = {
+      // Normalize answer with "other" option before saving
+      const finalAnswer = normalizeOtherOptionResponse(questionObj, item.answer);
+
+      // Create the result entry
+      return {
         surveyId: survey.id,
         userId,
         surveyTitle: survey.title,
-        question: questionText, // Use the actual question text from the survey
-        answer: item.answer,
+        question: questionText,
+        answer: finalAnswer,
       };
-
-      console.log('💾 Saving result with actual question text:', {
-        question: resultEntry.question,
-        answer: resultEntry.answer
-      });
-
-      return resultEntry;
     });
 
-    // Final verification before saving
-    console.log('\n🔍 FINAL VERIFICATION - All entries have actual question texts:');
-    resultEntries.forEach((entry, index) => {
-      console.log(`   Entry ${index + 1}:`, {
-        question: entry.question,
-        answer: entry.answer
-      });
-    });
+    console.log(`[SURVEY] Validated ${resultEntries.length} responses`);
 
     // Save all valid responses to database
-    console.log('💾 Saving to database...');
     const savedResults = await Result.bulkCreate(resultEntries);
     
-    console.log('✅ Survey responses recorded successfully with actual question texts');
-    console.log('📊 Saved results count:', savedResults.length);
-
-    // Immediate verification from database
-    const recentlySaved = await Result.findAll({
-      where: { 
-        surveyId: survey.id,
-        userId: userId 
-      },
-      order: [['id', 'DESC']],
-      limit: 3,
-      raw: true
-    });
-
-    console.log('🔍 DATABASE VERIFICATION - Recently saved results:');
-    recentlySaved.forEach((result, index) => {
-      console.log(`   Result ${index + 1}:`, {
-        id: result.id,
-        question: result.question,
-        answer: result.answer
-      });
-    });
+    console.log(`[SURVEY] Saved ${savedResults.length} responses to database`);
 
     // Return success response
     return res.status(200).json({ 
       message: 'Response recorded successfully',
       details: {
         savedCount: savedResults.length,
-        questions: resultEntries.map(entry => entry.question)
+        surveyId: survey.id,
+        surveyTitle: survey.title,
+        userId: userId
       }
     });
   } catch (error) {
-    console.error('❌ Response recording error:', error.message);
-    console.error('🔍 Error details:', {
-      stack: error.stack,
-      requestBody: req.body,
-      accessToken: req.query.accessToken
-    });
-    res.status(500).json({ 
-      message: error.message || 'Internal error while recording response'
+    console.error('[SURVEY] Error recording response:', error.message);
+    
+    // Return error response
+    let statusCode = 500;
+    let errorMessage = error.message;
+    
+    if (error.message.includes('already responded')) {
+      statusCode = 400;
+      errorMessage = 'You have already responded to this survey';
+    } else if (error.message.includes('not found')) {
+      statusCode = 404;
+    } else if (error.message.includes('Invalid') || error.message.includes('required')) {
+      statusCode = 400;
+    } else if (error.message.includes('Authentication required')) {
+      statusCode = 401;
+    }
+    
+    res.status(statusCode).json({ 
+      message: errorMessage,
+      ...(process.env.NODE_ENV === 'development' ? {
+        debug: {
+          errorName: error.name,
+          errorMessage: error.message
+        }
+      } : undefined)
     });
   }
 };
 
+// Safe wrapper function for normalizeSurveyQuestions
+const safeNormalizeSurveyQuestions = (survey) => {
+  try {
+    if (!survey) {
+      console.error('[SURVEY] Error: Survey is null or undefined');
+      return null;
+    }
+    return normalizeSurveyQuestions(survey);
+  } catch (error) {
+    console.error('[SURVEY] Error normalizing questions:', error.message);
+    return null;
+  }
+};
 
-export { normalizeSurveyQuestions, validateAnswerLength };
+// Export helper functions for use in other modules
+export { 
+  normalizeSurveyQuestions, 
+  safeNormalizeSurveyQuestions, 
+  validateAnswerLength, 
+  validateOtherTextLength, 
+  normalizeOtherOptionResponse 
+};
