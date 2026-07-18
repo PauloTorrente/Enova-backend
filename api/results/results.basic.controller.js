@@ -5,17 +5,14 @@ import { exportResponsesToExcel } from './exportResponsesToExcel.js';
 // Controller function to save a survey response
 export const saveResponse = async (req, res) => {
   try {
-    console.log('Starting saveResponse...');
-
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation failed', errors.array());
+      // Log only the field names that failed, not the submitted values.
+      console.warn('[results.basic.controller] saveResponse validation failed:', errors.array().map(e => e.path));
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { surveyId, userId, questionId, answer } = req.body;
-    console.log('Request Body:', { surveyId, userId, questionId, answer });
-
     const result = await resultsService.saveResponse(
       surveyId,
       userId,
@@ -28,7 +25,8 @@ export const saveResponse = async (req, res) => {
       result: result,
     });
   } catch (error) {
-    console.error('Error saving response:', error);
+    // Log surveyId/userId for traceability without dumping the answer payload.
+    console.error(`[results.basic.controller] saveResponse failed (surveyId=${req.body?.surveyId}, userId=${req.body?.userId}):`, error.message);
     return res.status(500).json({
       message: 'Error saving response',
       error: error.message,
@@ -51,7 +49,7 @@ export const getUserResponses = async (req, res) => {
       userResponses: userResponses,
     });
   } catch (error) {
-    console.error('Error fetching user responses:', error);
+    console.error(`[results.basic.controller] getUserResponses failed (userId=${req.params?.userId}):`, error.message);
     return res.status(500).json({
       message: 'Error fetching user responses',
       error: error.message,

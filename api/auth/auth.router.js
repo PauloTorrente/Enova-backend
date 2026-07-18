@@ -1,11 +1,11 @@
 import express from 'express'; 
-import { 
-  register, 
-  login, 
+import {
+  register,
+  login,
   refreshToken,
-  requestPasswordReset,  // Agora importado do controller
-  resetPassword          // Agora importado do controller
-} from './auth.controller.js'; 
+  requestPasswordReset,
+  resetPassword
+} from './auth.controller.js';
 import { authenticateUser, authenticateAdmin } from '../../middlewares/auth.middleware.js';
 
 const router = express.Router(); 

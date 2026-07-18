@@ -1,7 +1,7 @@
 import { DataTypes } from 'sequelize'; // Importing DataTypes from Sequelize
 import { sequelize } from '../../config/database.js'; // Importing the Sequelize instance
 import User from '../users/users.model.js';
-import Survey from '../surveys/surveys.model.js'; // Importando o modelo de Survey para uso na associação
+import Survey from '../surveys/surveys.model.js'; // Survey model, needed for the belongsTo association below
 
 // Defining the Result model using Sequelize ORM
 const Result = sequelize.define('Result', {

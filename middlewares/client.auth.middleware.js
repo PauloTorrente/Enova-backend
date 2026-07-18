@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
 import Client from '../api/client/client.model.js';
 
+// Client auth middleware that also loads role + permissions into
+// req.client — used by routes that need to distinguish client_admin from
+// a regular client. See middlewares/auth.client.middleware.js for the
+// lighter-weight variant (id/email/companyName only).
 export const authenticateClient = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
@@ -32,28 +36,25 @@ export const authenticateClient = async (req, res, next) => {
     
     next();
   } catch (error) {
-    console.error('Client authentication error:', error);
-    
+    console.warn('[client.auth.middleware] Client authentication failed:', error.message);
+
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Token expired' });
     }
-    
+
     res.status(401).json({ message: 'Invalid token' });
   }
 };
 
-// New middleware: Only for clients with 'client_admin' role
+// Requires an authenticated client whose role is specifically
+// 'client_admin' (cross-client access), not just any client.
 export const authenticateClientAdmin = async (req, res, next) => {
-  // First authenticate as normal client
   authenticateClient(req, res, () => {
-    // Then verify if it's client_admin
     if (req.client?.role !== 'client_admin') {
-      return res.status(403).json({ 
-        message: 'Access restricted to client administrators only' 
+      return res.status(403).json({
+        message: 'Access restricted to client administrators only'
       });
     }
-    
-    console.log(`✅ Client Admin authenticated: ${req.client.companyName}`);
     next();
   });
 };

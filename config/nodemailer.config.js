@@ -14,10 +14,12 @@ oauth2Client.setCredentials({
   refresh_token: process.env.SMTP_REFRESH_TOKEN,
 });
 
+// Called by nodemailer on every send — OAuth2 access tokens are short-lived,
+// so this refreshes one from the stored refresh token rather than caching it.
 const getAccessToken = async () => {
   const { token } = await oauth2Client.getAccessToken();
   if (!token) {
-    throw new Error('Access token não foi gerado');
+    throw new Error('Failed to generate OAuth2 access token');
   }
   return token;
 };
@@ -39,6 +41,9 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Fire-and-forget connectivity check at startup — errors surface on the
+// next actual send attempt rather than here, so we don't fail app boot
+// over a transient SMTP hiccup.
 transporter.verify(() => {});
 
 export default transporter;

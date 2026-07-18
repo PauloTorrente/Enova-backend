@@ -1,9 +1,10 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../../config/database.js';
-import bcryptjs from 'bcryptjs';
-import crypto from 'crypto';
+import * as authMethods from './client.auth-methods.util.js';
 
-// Define client model structure
+// Static register/confirmAccount/login methods live in
+// client.auth-methods.util.js — kept separate from the schema below since
+// they're business logic, not column mapping.
 const Client = sequelize.define('Client', {
   id: {
     type: DataTypes.INTEGER,
@@ -16,7 +17,7 @@ const Client = sequelize.define('Client', {
     unique: true,
     field: 'company_name'
   },
-  contactName: { 
+  contactName: {
     type: DataTypes.STRING,
     allowNull: false,
     field: 'contact_name'
@@ -108,77 +109,12 @@ const Client = sequelize.define('Client', {
   underscored: true
 });
 
-// ⚠️ Log new client creation (remove sensitive data in production)
 Client.afterCreate(async (client) => {
-  console.log('🆕 Client created ID:', client.id);
+  console.log(`[client.model] New client created (id=${client.id})`);
 });
 
-// Custom method for client registration
-Client.register = async function(clientData) {
-  console.log('🔍 Checking duplicate email/company...');
-  const { companyName, contactEmail } = clientData;
-  
-  if (await this.findOne({ where: { contactEmail } })) {
-    console.log('❌ Email already registered');
-    throw new Error('Email already registered');
-  }
-
-  if (await this.findOne({ where: { companyName } })) {
-    console.log('❌ Company already registered');
-    throw new Error('Company already registered');
-  }
-
-  const hashedPassword = await bcryptjs.hash(clientData.password, 10);
-  const confirmationToken = crypto.randomBytes(20).toString('hex');
-
-  return await this.create({
-    ...clientData,
-    password: hashedPassword,
-    confirmationToken,
-    isConfirmed: false,
-    role: 'client'
-  });
-};
-
-// Account confirmation method
-Client.confirmAccount = async function(token) {
-  console.log('🔑 Validating confirmation token...');
-  const client = await this.findOne({ where: { confirmationToken: token } });
-  
-  if (!client) {
-    console.log('❌ Invalid/expired token');
-    throw new Error('Invalid token');
-  }
-
-  client.isConfirmed = true;
-  client.confirmationToken = null;
-  console.log('✅ Account confirmed ID:', client.id);
-  return await client.save();
-};
-
-// Login validation method
-Client.login = async function(email, password) {
-  console.log('🔐 Attempting login for:', email);
-  const client = await this.findOne({ where: { contactEmail: email } });
-  
-  if (!client) {
-    console.log('❌ Client not found');
-    throw new Error('Invalid credentials');
-  }
-
-  if (!client.isConfirmed) {
-    console.log('⚠️ Unconfirmed account');
-    throw new Error('Confirm your email first');
-  }
-
-  const validPass = await bcryptjs.compare(password, client.password);
-  if (!validPass) {
-    console.log('❌ Invalid password');
-    throw new Error('Invalid credentials');
-  }
-
-  console.log('✅ Login successful ID:', client.id);
-  return client;
-};
+Client.register = (clientData) => authMethods.register(Client, clientData);
+Client.confirmAccount = (token) => authMethods.confirmAccount(Client, token);
+Client.login = (email, password) => authMethods.login(Client, email, password);
 
 export default Client;

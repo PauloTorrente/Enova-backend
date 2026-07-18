@@ -11,12 +11,8 @@ import User from '../users/users.model.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Handles password reset requests by generating a token and sending reset instructions via email
- * @param {string} email - The user's email address
- * @returns {Promise<Object>} Object with success message
- * @throws {Error} If email is not found or email sending fails
- */
+// Generates a reset token (1h expiry) and emails the user reset instructions.
+// Throws if the email isn't registered or the email fails to send.
 export const requestPasswordReset = async (email) => {
   // Find user by email
   const user = await User.findOne({ where: { email } });
@@ -68,18 +64,13 @@ export const requestPasswordReset = async (email) => {
 
     return { message: 'Password reset instructions sent to your email' };
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    console.error(`[password.service] Failed to send password reset email to ${email}:`, error.message);
     throw new Error('Failed to send password reset email');
   }
 };
 
-/**
- * Resets user password after validating the reset token
- * @param {string} token - The reset token from email
- * @param {string} newPassword - The new password to set
- * @returns {Promise<Object>} Object with success message
- * @throws {Error} If token is invalid/expired or password update fails
- */
+// Validates the reset token (must be unexpired) and sets the new password.
+// Throws if the token is invalid/expired or the update fails.
 export const resetPassword = async (token, newPassword) => {
   // Find user with valid, non-expired token
   const user = await User.findOne({
@@ -107,7 +98,7 @@ export const resetPassword = async (token, newPassword) => {
 
     return { message: 'Haz cambiado tu contraseña' };
   } catch (error) {
-    console.error('Error resetting password:', error);
+    console.error(`[password.service] Failed to reset password for user ${user.id}:`, error.message);
     throw new Error('Failed to reset password');
   }
 };

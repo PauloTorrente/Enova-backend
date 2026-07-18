@@ -7,7 +7,6 @@ import { sequelize } from '../../config/database.js'; // DB connection
 
 // Check if survey exists in DB
 const checkSurveyExistence = async (surveyId) => {
-  console.log('Checking survey...');
   const survey = await Survey.findByPk(surveyId);
   if (!survey) throw new Error('Survey not found');
   return survey;
@@ -16,15 +15,13 @@ const checkSurveyExistence = async (surveyId) => {
 // Save survey response with multiple choice support
 export const saveResponse = async (surveyId, userId, surveyTitle, question, answer) => {
   try {
-    console.log('Saving response...');
-    
     // Handle array answers (multiple choice)
     const formattedAnswer = Array.isArray(answer) ? JSON.stringify(answer) : answer;
-    
+
     // Create new response record
     const result = await Result.create({
       surveyId,
-      userId, 
+      userId,
       surveyTitle,
       question,
       answer: formattedAnswer
@@ -32,7 +29,7 @@ export const saveResponse = async (surveyId, userId, surveyTitle, question, answ
 
     return result;
   } catch (error) {
-    console.error('Save error:', error);
+    console.error(`[results.service] saveResponse failed (surveyId=${surveyId}, userId=${userId}):`, error.message);
     throw new Error('Save failed: ' + error.message);
   }
 };
@@ -40,15 +37,13 @@ export const saveResponse = async (surveyId, userId, surveyTitle, question, answ
 // Get all responses for specific survey
 export const getResponsesBySurvey = async (surveyId) => {
   try {
-    console.log('Fetching survey responses...');
-    
     // Use repository function instead of direct model call for consistency
     const responses = await resultsRepository.getResponsesBySurvey(surveyId);
 
     if (!responses.length) throw new Error('No responses found');
     return responses;
   } catch (error) {
-    console.error('Fetch error:', error);
+    console.error(`[results.service] getResponsesBySurvey failed (surveyId=${surveyId}):`, error.message);
     throw new Error('Fetch failed: ' + error.message);
   }
 };
@@ -56,15 +51,13 @@ export const getResponsesBySurvey = async (surveyId) => {
 // Get all responses from specific user
 export const getUserResponses = async (userId) => {
   try {
-    console.log('Fetching user responses...');
-    
     // Use repository function instead of direct model call for consistency
     const userResponses = await resultsRepository.getUserResponses(userId);
 
     if (!userResponses.length) throw new Error('No user responses found');
     return userResponses;
   } catch (error) {
-    console.error('User responses error:', error);
+    console.error(`[results.service] getUserResponses failed (userId=${userId}):`, error.message);
     throw new Error('User fetch failed: ' + error.message);
   }
 };
@@ -72,15 +65,13 @@ export const getUserResponses = async (userId) => {
 // Get responses for specific question
 export const getResponsesByQuestion = async (surveyId, question) => {
   try {
-    console.log('Fetching question responses...');
-    
     // Use repository function instead of direct model call for consistency
     const responses = await resultsRepository.getResponsesByQuestion(surveyId, question);
 
     if (!responses.length) throw new Error('No question responses found');
     return responses;
   } catch (error) {
-    console.error('Question responses error:', error);
+    console.error(`[results.service] getResponsesByQuestion failed (surveyId=${surveyId}):`, error.message);
     throw new Error('Question fetch failed: ' + error.message);
   }
 };
@@ -97,37 +88,14 @@ export const exportResponsesToExcel = async (surveyId) => {
   }));
 };
 
-// Get responses with user demographic data - UPDATED VERSION WITH FIXED QUESTION FIELD
+// Get responses with user demographic data attached (used by admin/client
+// dashboards that segment results by demographics)
 export const getSurveyResponsesWithUserDetails = async (surveyId) => {
   try {
-    console.log(`🔍 [SERVICE] Fetching responses with user details for survey: ${surveyId}`);
-    
-    // Use the updated repository function that fixes the question field issue
     const responses = await resultsRepository.getSurveyResponsesWithUserDetails(surveyId);
-    
-    console.log(`✅ [SERVICE] Retrieved ${responses.length} responses with user details`);
-    
-    // Additional debug logging to verify question field is populated
-    if (responses.length > 0) {
-      console.log('📋 [SERVICE] First response details for verification:', {
-        id: responses[0].id,
-        question: responses[0].question, // This should now be populated
-        answer: responses[0].answer,
-        userId: responses[0].userId,
-        hasUser: !!responses[0].user,
-        userData: responses[0].user ? {
-          id: responses[0].user.id,
-          name: `${responses[0].user.firstName} ${responses[0].user.lastName}`
-        } : 'No user data'
-      });
-    } else {
-      console.log('ℹ️ [SERVICE] No responses found for this survey');
-    }
-    
     return responses;
   } catch (error) {
-    console.error('❌ [SERVICE] User details error:', error);
-    console.error('🔍 [SERVICE] Error stack:', error.stack);
+    console.error(`[results.service] getSurveyResponsesWithUserDetails failed (surveyId=${surveyId}):`, error.message);
     throw new Error('User details failed: ' + error.message);
   }
 };

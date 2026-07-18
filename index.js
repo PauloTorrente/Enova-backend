@@ -20,9 +20,9 @@ const allowedOrigins = [
   'https://opinacash.com',
   'http://localhost:5173',
   'https://enova-pulse-rwpd.vercel.app',
-  'https://enova-pulse-rne2.vercel.app', // ← ADD THE MISSING DOMAIN HERE
-  'https://enova-pulse.vercel.app',      // ← COMMON PATTERN FOR VERCEL DEPLOYS
-  'https://*.vercel.app'                 // ← WILDCARD FOR ALL VERCEL DEPLOYS
+  'https://enova-pulse-rne2.vercel.app',
+  'https://enova-pulse.vercel.app',
+  'https://*.vercel.app' // Not a real CORS wildcard match — actual *.vercel.app requests are allowed by the endsWith() check below, not by this literal string.
 ];
 
 const corsOptions = {

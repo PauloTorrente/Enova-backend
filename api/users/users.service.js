@@ -57,3 +57,7 @@ export const getAllUsers = async (filters) => {
 export const updateUserScore = async (id, points) => {
   return await usersRepo.updateScore(id, points);
 };
+
+export const deleteUser = async (id) => {
+  return await usersRepo.softDelete(id);
+};
