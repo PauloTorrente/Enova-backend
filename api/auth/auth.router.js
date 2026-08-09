@@ -3,6 +3,7 @@ import {
   register,
   login,
   refreshToken,
+  logout,
   requestPasswordReset,
   resetPassword
 } from './auth.controller.js';
@@ -18,6 +19,9 @@ router.post('/login', login);
 
 // Route for handling refresh tokens
 router.post('/refresh-token', refreshToken);
+
+// Route for logging out (clears the auth cookies)
+router.post('/logout', logout);
 
 // Route for requesting password reset
 router.post('/forgot-password', requestPasswordReset);

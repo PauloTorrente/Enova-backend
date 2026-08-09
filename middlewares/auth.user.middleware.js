@@ -1,17 +1,24 @@
 import jwt from 'jsonwebtoken';
+import { extractToken, verifyCsrf } from './auth.cookies.util.js';
 
-// Verifies the Authorization bearer token and attaches the decoded
-// payload to req.user. Every other user-facing auth middleware in this
-// file builds on top of this one.
+// Verifies the access token (httpOnly cookie, or an Authorization header for
+// non-browser callers) and attaches the decoded payload to req.user. Every
+// other user-facing auth middleware in this file builds on top of this one.
 export const authenticateUser = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
+  const token = extractToken(req);
 
   if (!token) {
     return res.status(401).json({ message: 'Access denied. Please login first.' });
   }
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!verifyCsrf(req, decoded)) {
+      return res.status(403).json({ message: 'Invalid or missing CSRF token.' });
+    }
+
+    req.user = decoded;
     next();
   } catch (error) {
     console.warn('[auth.user.middleware] Token verification failed:', error.message);

@@ -1,18 +1,23 @@
 import jwt from 'jsonwebtoken';
 import Client from '../api/client/client.model.js';
+import { extractToken, verifyCsrf } from './auth.cookies.util.js';
 
 // Accepts either an admin user token or a client token on the same
 // route, setting req.user or req.client depending on which one the
 // token decodes to. Used by endpoints both roles can call (e.g. survey
 // creation).
 export const authenticateAdminOrClient = async (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
+  const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ message: 'Authentication required' });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!verifyCsrf(req, decoded)) {
+      return res.status(403).json({ message: 'Invalid or missing CSRF token.' });
+    }
 
     if (decoded.role?.toLowerCase() === 'admin') {
       req.user = { id: decoded.userId, role: decoded.role.toLowerCase(), email: decoded.email };

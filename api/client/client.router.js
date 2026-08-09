@@ -1,11 +1,12 @@
 import express from 'express';
-import { 
-  register, 
-  confirm, 
-  login, 
+import {
+  register,
+  confirm,
+  login,
+  logout,
   getClient,
-  getAllClients,         
-  getAdminDashboard,     
+  getAllClients,
+  getAdminDashboard,
   forgotPassword,
   resetPassword,
   validateResetToken
@@ -25,8 +26,11 @@ router.post('/register', register);
 // Route for email confirmation (using token from confirmation email)
 router.get('/confirm/:token', confirm);
 
-// Route for client login (returns JWT tokens)
+// Route for client login (sets JWT cookies)
 router.post('/login', login);
+
+// Route for client logout (clears the auth cookies)
+router.post('/logout', logout);
 
 // Route for password reset request
 router.post('/forgot-password', forgotPassword);

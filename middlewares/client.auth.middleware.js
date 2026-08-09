@@ -1,22 +1,27 @@
 import jwt from 'jsonwebtoken';
 import Client from '../api/client/client.model.js';
+import { extractToken, extractRefreshToken, verifyCsrf, setAuthCookies, generateCsrfToken } from './auth.cookies.util.js';
+
+const ACCESS_MAX_AGE_MS = 7 * 60 * 60 * 1000; // 7h, matches refreshClientToken's expiresIn below
 
 // Client auth middleware that also loads role + permissions into
 // req.client — used by routes that need to distinguish client_admin from
 // a regular client. See middlewares/auth.client.middleware.js for the
 // lighter-weight variant (id/email/companyName only).
 export const authenticateClient = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractToken(req);
+
+  if (!token) {
     return res.status(401).json({ message: 'Authentication token not provided' });
   }
 
-  const token = authHeader.split(' ')[1];
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
+    if (!verifyCsrf(req, decoded)) {
+      return res.status(403).json({ message: 'Invalid or missing CSRF token.' });
+    }
+
     // Fetch complete client information from database
     const client = await Client.findByPk(decoded.clientId, {
       attributes: ['id', 'companyName', 'contactEmail', 'role', 'permissions']
@@ -60,7 +65,7 @@ export const authenticateClientAdmin = async (req, res, next) => {
 };
 
 export const refreshClientToken = async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = extractRefreshToken(req);
 
   if (!refreshToken) {
     return res.status(400).json({ message: 'Refresh token is required' });
@@ -68,25 +73,28 @@ export const refreshClientToken = async (req, res) => {
 
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    
+
     // Verify if client still exists
     const client = await Client.findByPk(decoded.clientId);
     if (!client) {
       return res.status(401).json({ message: 'Client not found' });
     }
-    
+
+    const csrfToken = generateCsrfToken();
     const newToken = jwt.sign(
-      { 
-        clientId: decoded.clientId, 
+      {
+        clientId: decoded.clientId,
         email: decoded.email,
-        role: client.role || 'client'
+        role: client.role || 'client',
+        csrf: csrfToken
       },
       process.env.JWT_SECRET,
       { expiresIn: '7h' }
     );
 
-    res.status(200).json({ 
-      token: newToken,
+    setAuthCookies(res, { accessToken: newToken, accessMaxAgeMs: ACCESS_MAX_AGE_MS, csrfToken });
+
+    res.status(200).json({
       client: {
         id: client.id,
         companyName: client.companyName,

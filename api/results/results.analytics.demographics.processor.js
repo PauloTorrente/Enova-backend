@@ -8,9 +8,15 @@ import { getAgeGroup } from './results.analytics.age-group.util.js';
 // Creates the empty analytics shell for a survey, including basic stats
 // that don't require iterating over every response.
 export const initializeAnalytics = (survey, results) => {
+  // One respondent can leave multiple answers, so distinct users is
+  // computed from userId rather than reusing results.length.
+  const uniqueUsers = new Set(results.map((r) => r.userId)).size;
+
   return {
     basicStats: {
       totalResponses: results.length,
+      totalUsers: uniqueUsers,
+      responsesPerUser: uniqueUsers > 0 ? (results.length / uniqueUsers).toFixed(1) : '0',
       surveyTitle: survey.title,
       createdAt: survey.createdAt,
       expirationTime: survey.expirationTime,

@@ -15,7 +15,7 @@
 // know how this controller is internally organized.
 export { register } from './client.registration.controller.js';
 export { confirm } from './client.confirmation.controller.js';
-export { login } from './client.session.controller.js';
+export { login, logout } from './client.session.controller.js';
 export { getClient } from './client.profile.controller.js';
 export { forgotPassword, resetPassword, validateResetToken } from './client.password-reset.controller.js';
 export { getAllClients } from './client.admin.controller.js';
