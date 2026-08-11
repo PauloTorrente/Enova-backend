@@ -25,7 +25,7 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error(`[auth.session] login failed (email=${email}):`, error.message);
 
-    if (error.message === 'Invalid credentials.') {
+    if (error.message === 'The email or password may be incorrect.') {
       return res.status(401).json({ message: error.message });
     }
     if (error.message === 'Please confirm your email before logging in.') {
