@@ -20,7 +20,11 @@ export const login = async (req, res) => {
       refreshPath: REFRESH_PATH,
       csrfToken,
     });
-    res.json(clientData);
+    // csrfToken cookie is cross-origin (onrender.com vs the client-side
+    // frontend's own domain) and unreadable by that frontend's JS — same
+    // issue as auth.session.controller.js. Ship the value in the body too
+    // so the frontend can keep it in memory instead of reading a cookie.
+    res.json({ ...clientData, csrfToken });
   } catch (error) {
     console.error(`[client.session] login failed (email=${contactEmail}):`, error.message);
     res.status(401).json({ message: error.message });
