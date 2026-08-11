@@ -21,7 +21,14 @@ export const login = async (req, res) => {
       refreshPath: REFRESH_PATH,
       csrfToken,
     });
-    res.status(200).json({ message: 'Login successful!' });
+    // The csrfToken cookie above is unreadable by the frontend's own JS:
+    // it's set by enova-backend.onrender.com, a different registrable
+    // domain than the frontend (opinacash.com, *.vercel.app), and
+    // document.cookie can never see a cookie that belongs to another
+    // origin — that's a browser-enforced boundary, not a config mistake.
+    // So the value also rides in the body; the frontend keeps it in memory
+    // and mirrors it into X-CSRF-Token itself instead of reading a cookie.
+    res.status(200).json({ message: 'Login successful!', csrfToken });
   } catch (error) {
     console.error(`[auth.session] login failed (email=${email}):`, error.message);
 
@@ -47,7 +54,9 @@ export const refreshToken = async (req, res) => {
   try {
     const { token: newToken, csrfToken } = await authService.refreshToken(oldRefreshToken);
     setAuthCookies(res, { accessToken: newToken, accessMaxAgeMs: ACCESS_MAX_AGE_MS, csrfToken });
-    res.status(200).json({ message: 'Token refreshed successfully!' });
+    // See the same note in login() above — the cookie is cross-origin and
+    // unreadable by the frontend, so the value has to travel in the body too.
+    res.status(200).json({ message: 'Token refreshed successfully!', csrfToken });
   } catch (error) {
     console.error('[auth.session] refreshToken failed:', error.message);
 
