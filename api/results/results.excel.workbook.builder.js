@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { calculateStatistics, calculateAnswerCounts } from './results.excel.data.util.js';
+import { calculateStatistics, calculateAnswerCounts, DEMOGRAPHIC_COLUMNS } from './results.excel.data.util.js';
 
 // Assembles the full workbook (raw data + statistics + per-question
 // visualization sheets) from already-processed response rows.
@@ -69,6 +69,28 @@ const addVisualizationSheet = (workbook, data) => {
   });
 
   applySheetStyle(sheet, '00C897');
+};
+
+// Client-facing export: one sheet, one row per respondent — demographic
+// columns first (frozen alongside the header row so they stay in view
+// while scrolling through questions), then one column per question. This
+// is what actually lets a client filter/pivot in Excel by who gave which
+// answer, instead of the flat per-answer log in addRawDataSheet above.
+export const createWideExcelWorkbook = (rows, questionOrder) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Enova Analytics';
+  workbook.created = new Date();
+
+  const demographicCols = DEMOGRAPHIC_COLUMNS.map((name) => ({ header: name, key: name, width: name === 'Email' ? 26 : 18 }));
+  const questionCols = questionOrder.map((q) => ({ header: q, key: q, width: 32 }));
+
+  const sheet = workbook.addWorksheet('Respuestas');
+  sheet.columns = [...demographicCols, ...questionCols];
+  sheet.addRows(rows);
+  applySheetStyle(sheet, '6C63FF');
+  sheet.views = [{ state: 'frozen', xSplit: demographicCols.length, ySplit: 1 }];
+
+  return workbook;
 };
 
 // Applies the shared header/border/alignment style to a sheet's header

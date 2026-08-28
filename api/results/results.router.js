@@ -35,6 +35,12 @@ router.get('/client/survey/:surveyId/with-users', authenticateClient, resultsCon
 // Route for clients to get analytics for a survey (SOMENTE SEUS PRÓPRIOS SURVEYS)
 router.get('/client/survey/:surveyId/analytics', authenticateClient, resultsController.getSurveyAnalytics);
 
+// Route for clients to export their survey's responses as Excel (default),
+// CSV (?format=csv) — both one row per respondent with demographic columns —
+// or PDF (?format=pdf), a readable per-question report instead of a raw
+// table (SOMENTE SEUS PRÓPRIOS SURVEYS)
+router.get('/client/survey/:surveyId/export', authenticateClient, resultsController.exportSurveyResponses);
+
 // Route for client admin to get survey results with user scores
 router.get('/client/survey/:surveyId/results-with-scores', authenticateClientAdmin, resultsController.getSurveyResultsWithScores);
 

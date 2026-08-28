@@ -10,12 +10,13 @@ export const getUserResponses = basicController.getUserResponses;
 export const getResponsesBySurvey = clientController.getResponsesBySurvey;
 export const getResponsesByQuestion = clientController.getResponsesByQuestion;
 export const getSurveyResponsesWithUserDetails = clientController.getSurveyResponsesWithUserDetails;
-export const getSurveyAnalytics = clientController.getSurveyAnalytics; 
+export const getSurveyAnalytics = clientController.getSurveyAnalytics;
 export { exportResponsesToExcel };
 export const getSurveyResultsWithScores = clientController.getSurveyResultsWithScores;
 export const awardPointsToUser = clientController.awardPointsToUser;
 export const getAllSurveys = clientController.getAllSurveys;
 export const getAdminDashboard = clientController.getAdminDashboard;
+export const exportSurveyResponses = clientController.exportSurveyResponses;
 
 // Export controller collection
 export default {
@@ -28,6 +29,7 @@ export default {
   getSurveyAnalytics,
   getSurveyResultsWithScores,
   awardPointsToUser,
-  getAllSurveys,        
-  getAdminDashboard       
+  getAllSurveys,
+  getAdminDashboard,
+  exportSurveyResponses
 };
