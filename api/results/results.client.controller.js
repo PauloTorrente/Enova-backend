@@ -19,6 +19,7 @@ export { getSurveyResponsesWithUserDetails } from './results.client.detailed.con
 export { getSurveyAnalytics } from './results.client.analytics.controller.js';
 export { getSurveyResultsWithScores } from './results.client.scores.controller.js';
 export { awardPointsToUser } from './results.client.points.controller.js';
+export { exportSurveyResponses } from './results.client.export.controller.js';
 
 import { getAllSurveys, getAdminDashboard } from './results.client.admin.controller.js';
 import { getResponsesBySurvey, getResponsesByQuestion } from './results.client.responses.controller.js';
@@ -26,6 +27,7 @@ import { getSurveyResponsesWithUserDetails } from './results.client.detailed.con
 import { getSurveyAnalytics } from './results.client.analytics.controller.js';
 import { getSurveyResultsWithScores } from './results.client.scores.controller.js';
 import { awardPointsToUser } from './results.client.points.controller.js';
+import { exportSurveyResponses } from './results.client.export.controller.js';
 
 export default {
   getResponsesBySurvey,
@@ -35,5 +37,6 @@ export default {
   getSurveyResultsWithScores,
   awardPointsToUser,
   getAllSurveys,
-  getAdminDashboard
+  getAdminDashboard,
+  exportSurveyResponses
 };
