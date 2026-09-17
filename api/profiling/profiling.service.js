@@ -6,11 +6,12 @@ import { calculateSurgicalProfile } from './profiling.graffar.service.js';
 // QA endpoint (POST /profiling/surgical) and the real respondent path (a
 // survey marked surveyType: 'surgical_profiling' — see
 // surveys.response.validation.controller.js) so the two never drift.
-export const saveSurgicalProfile = async (userId, answers) => {
+export const saveSurgicalProfile = async (userId, answers, surveyId = null) => {
   const calculated = calculateSurgicalProfile(answers);
 
   return SurgicalProfile.create({
     userId,
+    surveyId,
     sostenQuien: answers.sosten_quien ?? null,
     ocupacionSosten: answers.ocupacion_sosten,
     educacionSosten: answers.educacion_sosten,

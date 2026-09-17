@@ -60,6 +60,13 @@ export const normalizeSurveyQuestions = (survey) => {
     accessToken: survey.accessToken,
     clientId: survey.clientId,
     responseLimit: survey.responseLimit,
+    // Dropped here before — surveyType undefined meant the Perfilación
+    // Quirúrgica auto-scoring hook (surveys.response.validation.controller.js)
+    // never fired for a survey loaded through this normalizer, and
+    // rewardPerResponse undefined meant every survey paid the flat
+    // DEFAULT_RESPONDENT_REWARD regardless of what was configured on it.
+    surveyType: survey.surveyType,
+    rewardPerResponse: survey.rewardPerResponse,
     createdAt: survey.createdAt,
     updatedAt: survey.updatedAt
   };

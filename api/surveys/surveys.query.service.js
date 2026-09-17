@@ -51,6 +51,13 @@ export const getSurveyByAccessToken = async (accessToken, clientId = null) => {
       accessToken: normalizedSurvey.accessToken,
       clientId: normalizedSurvey.clientId,
       responseLimit: normalizedSurvey.responseLimit,
+      // Both were silently dropped here before — surveyType being
+      // undefined meant the Perfilación Quirúrgica auto-scoring hook in
+      // surveys.response.validation.controller.js never fired, and
+      // rewardPerResponse being undefined meant every survey paid the
+      // flat DEFAULT_RESPONDENT_REWARD no matter what was configured.
+      surveyType: normalizedSurvey.surveyType,
+      rewardPerResponse: normalizedSurvey.rewardPerResponse,
       createdAt: normalizedSurvey.createdAt,
       updatedAt: normalizedSurvey.updatedAt
     };

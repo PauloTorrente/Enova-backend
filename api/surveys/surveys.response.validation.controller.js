@@ -81,7 +81,7 @@ export const respondToSurveyByToken = async (req, res) => {
         const user = await User.findByPk(userId);
         answers.pais = answers.pais ?? user?.country ?? null;
 
-        await saveSurgicalProfile(userId, answers);
+        await saveSurgicalProfile(userId, answers, survey.id);
       } catch (profilingError) {
         console.error(`[surveys.response.validation] Graffar scoring failed (userId=${userId}, surveyId=${survey.id}):`, profilingError.message);
       }
