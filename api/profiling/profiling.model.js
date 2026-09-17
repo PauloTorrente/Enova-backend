@@ -12,6 +12,11 @@ const SurgicalProfile = sequelize.define(
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     userId: { type: DataTypes.INTEGER, allowNull: false, field: 'user_id' },
+    // Which survey this submission came from — null for rows created via
+    // the manual QA endpoint (POST /profiling/surgical) before this column
+    // existed. Needed so a client can see results scoped to THEIR
+    // Perfilación Quirúrgica survey, not every profile a respondent ever submitted.
+    surveyId: { type: DataTypes.INTEGER, allowNull: true, field: 'survey_id' },
 
     // Módulo A — núcleo socioeconómico
     sostenQuien: { type: DataTypes.STRING, allowNull: true, field: 'sosten_quien' },
@@ -37,7 +42,7 @@ const SurgicalProfile = sequelize.define(
 
     // Módulo D — actitudes (opcional / rotativo)
     actitudCompra: { type: DataTypes.STRING, allowNull: true, field: 'actitud_compra' },
-    actitudInnovador: { type: DataTypes.INTEGER, allowNull: true, field: 'actitud_innovador' },
+    actitudInnovador: { type: DataTypes.STRING, allowNull: true, field: 'actitud_innovador' },
 
     // Control de calidad
     controlAtencion: { type: DataTypes.STRING, allowNull: true, field: 'control_atencion' },
