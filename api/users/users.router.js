@@ -3,7 +3,8 @@ import {
   getUserById, updateUser, updateCurrentUser, confirmUser,
   getAllUsers, deleteUser, getWalletBalance, updateUserScore
 } from './users.controller.js';
-import { authenticateUser, authenticateAdmin } from '../../middlewares/auth.middleware.js';
+import { authenticateUser, authenticateAdmin, authenticateClient } from '../../middlewares/auth.middleware.js';
+import { getUserRanking } from './users.ranking.controller.js';
 import User from './users.model.js';
 
 const router = express.Router();
@@ -37,6 +38,10 @@ router.get('/me', authenticateUser, async (req, res) => {
 
 // Update the current logged-in user's profile.
 router.patch('/me', authenticateUser, updateCurrentUser);
+
+// Top respondents by loyalty score — for Enova Pulse's leaderboard. Must
+// come before the "/:id" route below, or "ranking" would be parsed as an id.
+router.get('/ranking', authenticateClient, getUserRanking);
 
 // List all users (supports optional query filters).
 router.get('/', authenticateAdmin, getAllUsers);

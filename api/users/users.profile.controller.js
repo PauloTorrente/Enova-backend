@@ -1,11 +1,14 @@
 import * as usersService from './users.service.js';
+import * as paymentsService from '../payments/payments.service.js';
 
 // Fields a profile update is allowed to touch — shared by updateUser
 // (admin/self editing another profile by ID) and updateCurrentUser
 // (self editing via /users/me).
 const EDITABLE_PROFILE_FIELDS = [
   'firstName', 'lastName', 'gender', 'age', 'phone_number', 'city',
-  'residentialArea', 'purchaseResponsibility', 'childrenCount', 'childrenAges', 'educationLevel'
+  'residentialArea', 'purchaseResponsibility', 'childrenCount', 'childrenAges', 'educationLevel',
+  // Filtro Preliminar additions
+  'country', 'postalCode', 'birthYear', 'educationCode', 'occupation', 'hasChildren'
 ];
 
 const pickEditableFields = (body) => {
@@ -76,8 +79,20 @@ export const updateCurrentUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // "Completa tu registro y vas a ganar X" — one-time reward the instant
+    // the basic profile (phone + gender) becomes complete. Never blocks
+    // the profile update itself if it fails.
+    let rewardJustPaid = 0;
+    try {
+      rewardJustPaid = await paymentsService.payBasicProfileCompletionReward(updatedUser);
+    } catch (rewardError) {
+      console.error(`[users.profile] payBasicProfileCompletionReward failed (userId=${userId}):`, rewardError.message);
+    }
+
     const { password, confirmationToken, phone_number, ...safeUser } = updatedUser.toJSON();
     safeUser.hasphone_number = !!phone_number;
+    safeUser.walletBalance = (updatedUser.walletBalance || 0) + rewardJustPaid;
+    if (rewardJustPaid) safeUser.basicProfileRewardJustPaid = rewardJustPaid;
 
     res.json(safeUser);
   } catch (error) {

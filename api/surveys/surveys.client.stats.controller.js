@@ -19,14 +19,23 @@ export const getClientSurveyStats = async (req, res) => {
     const stats = await Promise.all(
       surveys.map(async (survey) => {
         const responseCount = await Result.count({ where: { surveyId: survey.id } });
+        // responseLimit caps respondents ("100 encuestados"), not answer
+        // rows — responsePercentage needs the distinct-user count, not
+        // responseCount (kept above as the raw row total for reference).
+        const respondentCount = await Result.count({
+          where: { surveyId: survey.id },
+          distinct: true,
+          col: 'userId'
+        });
         return {
           surveyId: survey.id,
           surveyTitle: survey.title,
           status: survey.status,
           responseCount,
+          respondentCount,
           responseLimit: survey.responseLimit,
           responsePercentage: survey.responseLimit
-            ? Math.min(100, Math.round((responseCount / survey.responseLimit) * 100))
+            ? Math.min(100, Math.round((respondentCount / survey.responseLimit) * 100))
             : null,
           isExpired: new Date() > new Date(survey.expirationTime)
         };

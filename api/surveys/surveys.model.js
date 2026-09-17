@@ -59,6 +59,28 @@ const Survey = sequelize.define('Survey', {
     allowNull: false,
     unique: true,
   },
+  // Techdemo payment scaffolding — how much (in the platform's currency,
+  // MXN for the Mexico launch) a respondent earns for completing THIS
+  // survey. Falls back to config/paymentsConfig.js's default when unset —
+  // see api/payments/payments.service.js.
+  rewardPerResponse: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'reward_per_response',
+  },
+  // 'standard' (default) or 'surgical_profiling'. A survey marked
+  // 'surgical_profiling' IS the Perfilación Quirúrgica — its answers get
+  // run through the Graffar formula automatically when a respondent
+  // finishes it (see api/profiling/profiling.survey-mapper.js). The
+  // questions still get authored the normal way (Enova-Pulse survey
+  // creation UI); this flag just tells the backend to also treat this
+  // one specially.
+  surveyType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'standard',
+    field: 'survey_type',
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,

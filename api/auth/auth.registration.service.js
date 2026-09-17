@@ -12,9 +12,21 @@ const __dirname = path.dirname(__filename);
 // Creates a new user account and emails them a confirmation link. The
 // account starts unconfirmed (isConfirmed: false) — login is blocked
 // until the user clicks the link (see auth.session.service.js).
-export const register = async ({ email, password, role, firstName, lastName, gender, age, phone_number, city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel }) => {
+export const register = async ({
+  email, password, role, firstName, lastName, gender, age, phone_number, city,
+  residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel,
+  country, postalCode, birthYear, educationCode, occupation, hasChildren,
+  consentAccepted, consentVersion
+}) => {
   if (!email || !password || !firstName || !lastName) {
     throw new Error('Email, password, first name, and last name are required.');
+  }
+
+  // Filtro Preliminar: "Si 'No acepto' → no se crea la cuenta" — consent is
+  // the legal basis for contacting/paying the respondent, so it's a hard
+  // gate here rather than an editable-later profile field.
+  if (consentAccepted !== true) {
+    throw new Error('You must accept the consent terms to register.');
   }
 
   const existingUser = await User.findOne({ where: { email } });
@@ -40,6 +52,15 @@ export const register = async ({ email, password, role, firstName, lastName, gen
     childrenCount: childrenCount || null,
     childrenAges: childrenAges || null,
     educationLevel: educationLevel || null,
+    country: country || null,
+    postalCode: postalCode || null,
+    birthYear: birthYear || null,
+    educationCode: educationCode || null,
+    occupation: occupation || null,
+    hasChildren: hasChildren === undefined ? null : hasChildren,
+    consentAccepted: true,
+    consentDate: new Date(),
+    consentVersion: consentVersion || 'v1',
     deleted: false,
     isConfirmed: false,
     createdAt: new Date(),

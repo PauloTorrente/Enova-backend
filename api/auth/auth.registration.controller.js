@@ -4,13 +4,17 @@ import * as authService from './auth.service.js';
 export const register = async (req, res) => {
   const {
     email, password, role, firstName, lastName, gender, age, phone_number,
-    city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel
+    city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel,
+    country, postalCode, birthYear, educationCode, occupation, hasChildren,
+    consentAccepted, consentVersion
   } = req.body;
 
   try {
     const newUser = await authService.register({
       email, password, role, firstName, lastName, gender, age, phone_number,
-      city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel
+      city, residentialArea, purchaseResponsibility, childrenCount, childrenAges, educationLevel,
+      country, postalCode, birthYear, educationCode, occupation, hasChildren,
+      consentAccepted, consentVersion
     });
 
     // Only return non-sensitive fields — never the password hash or
@@ -28,6 +32,9 @@ export const register = async (req, res) => {
       return res.status(409).json({ message: error.message });
     }
     if (error.message === 'Email, password, first name, and last name are required.') {
+      return res.status(400).json({ message: error.message });
+    }
+    if (error.message === 'You must accept the consent terms to register.') {
       return res.status(400).json({ message: error.message });
     }
     if (error.message === 'Error loading the email template') {

@@ -5,6 +5,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { sequelize } from './config/database.js';
 import router from './api/router.js';
 import './api/users/cleanUnconfirmedUsers.js'; 
@@ -14,6 +16,7 @@ import Result from './api/results/results.model.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Define which domains are allowed to make requests
 const allowedOrigins = [
@@ -66,6 +69,19 @@ app.use(helmet()); // Add security headers
 
 // Handle pre-flight requests for all routes
 app.options('*', cors(corsOptions));
+
+// Serve uploaded question media (converted images + videos). Marked
+// cross-origin explicitly, since helmet's default Cross-Origin-Resource-Policy
+// (same-origin) would otherwise block <img>/<video> tags loading these
+// files from the Pulse/opina-cash frontends' different origins.
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(__dirname, 'uploads'))
+);
 
 // Mount API routes under /api prefix
 app.use('/api', router);

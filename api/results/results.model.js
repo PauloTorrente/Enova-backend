@@ -34,6 +34,17 @@ const Result = sequelize.define('Result', {
     type: DataTypes.STRING, // The question from the survey that was answered
     allowNull: false, // Cannot be null, we need the question to store the response
   },
+  // The question's stable questionId (as opposed to `question`, its
+  // display text, which can change or repeat). Nullable because rows
+  // saved before this column existed only have the text. Needed to map a
+  // respondent's answers back to a specific field reliably — e.g. the
+  // Perfilación Quirúrgica survey's Graffar calculation reads answers by
+  // questionId, not by matching display text (see api/profiling/).
+  questionId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'question_id',
+  },
   answer: {
     type: DataTypes.JSON, // The answer can be a simple value or an object (for multiple choice questions, for example)
     allowNull: false, // Cannot be null, the response must be provided

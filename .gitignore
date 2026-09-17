@@ -1,2 +1,6 @@
 # Ignore environment files
 .env
+
+# Locally stored uploaded media (only relevant if the host doesn't have
+# persistent disk — see README note on media storage)
+/uploads

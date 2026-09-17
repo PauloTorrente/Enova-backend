@@ -3,6 +3,10 @@ import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 import { normalizeSurveyQuestions } from './surveys.response.validation.normalize.util.js';
 import { validateResponseItem } from './surveys.response.answer-validator.util.js';
+import * as paymentsService from '../payments/payments.service.js';
+import User from '../users/users.model.js';
+import { mapSurveyResultsToGraffarAnswers } from '../profiling/profiling.survey-mapper.js';
+import { saveSurgicalProfile } from '../profiling/profiling.service.js';
 
 // Strict survey-response submission endpoint (the one actually wired to
 // POST /respond — see surveys.router.js). Every answer must match its
@@ -23,8 +27,17 @@ export const respondToSurveyByToken = async (req, res) => {
     }
 
     if (survey.responseLimit !== null) {
-      const responseCount = await Result.count({ where: { surveyId: survey.id } });
-      if (responseCount >= survey.responseLimit) {
+      // responseLimit is a cap on RESPONDENTS ("100 encuestados"), not on
+      // answer rows — one respondent produces one Result row per question,
+      // so counting rows here closed surveys after a fraction of the
+      // promised number of people (e.g. ~11 people on a 9-question survey
+      // capped at 100). Count distinct userId instead.
+      const respondentCount = await Result.count({
+        where: { surveyId: survey.id },
+        distinct: true,
+        col: 'userId'
+      });
+      if (respondentCount >= survey.responseLimit) {
         return res.status(400).json({ message: 'This survey has reached the maximum response limit.' });
       }
     }
@@ -56,7 +69,32 @@ export const respondToSurveyByToken = async (req, res) => {
       }
     }
 
-    await surveysService.saveResponse(survey.id, userId, req.body);
+    const savedResults = await surveysService.saveResponse(survey.id, userId, req.body);
+
+    // A survey marked surveyType: 'surgical_profiling' IS the Perfilación
+    // Quirúrgica — its just-saved answers run through the Graffar formula
+    // right here, the same way any other survey's answers just get saved.
+    // Never let a scoring hiccup fail a response that already saved fine.
+    if (survey.surveyType === 'surgical_profiling') {
+      try {
+        const answers = mapSurveyResultsToGraffarAnswers(savedResults);
+        const user = await User.findByPk(userId);
+        answers.pais = answers.pais ?? user?.country ?? null;
+
+        await saveSurgicalProfile(userId, answers);
+      } catch (profilingError) {
+        console.error(`[surveys.response.validation] Graffar scoring failed (userId=${userId}, surveyId=${survey.id}):`, profilingError.message);
+      }
+    }
+
+    // Techdemo payment scaffolding — pays the respondent's wallet for
+    // completing this survey. Never let a payment hiccup fail a response
+    // that was already saved successfully.
+    try {
+      await paymentsService.payRespondentForSurvey({ userId, survey });
+    } catch (paymentError) {
+      console.error(`[surveys.response.validation] payRespondentForSurvey failed (userId=${userId}, surveyId=${survey.id}):`, paymentError.message);
+    }
 
     const duration = Date.now() - startTime;
     res.status(200).json({

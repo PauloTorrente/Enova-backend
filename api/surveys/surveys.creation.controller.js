@@ -1,4 +1,5 @@
 import * as surveysService from './surveys.service.js';
+import * as paymentsService from '../payments/payments.service.js';
 import crypto from 'crypto';
 
 // Generates the respondent-facing access token. Generated here (rather
@@ -32,6 +33,18 @@ export const createSurvey = async (req, res) => {
     surveyData.accessToken = accessToken;
 
     const survey = await surveysService.createSurvey(surveyData);
+
+    // Techdemo payment scaffolding — charges the client's credit balance
+    // for publishing this survey. Non-blocking: there's no real payment
+    // method on file to actually decline yet, so this never stops survey
+    // creation (see api/payments/payments.service.js).
+    if (req.client?.id) {
+      try {
+        await paymentsService.chargeClientForSurveyCreation({ clientId: req.client.id, survey });
+      } catch (paymentError) {
+        console.error(`[surveys.creation] chargeClientForSurveyCreation failed (clientId=${req.client.id}, surveyId=${survey.id}):`, paymentError.message);
+      }
+    }
 
     // accessToken is echoed from the value we generated above (not
     // survey.accessToken) as a safety net in case the DB round-trip ever
