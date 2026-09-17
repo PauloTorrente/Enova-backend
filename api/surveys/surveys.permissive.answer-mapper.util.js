@@ -17,6 +17,7 @@ export const mapResponseItemToResultEntry = (item, questions, surveyId, userId, 
       surveyId,
       userId,
       question: questionText,
+      questionId: item.questionId,
       answer: item.answer
     }
   };

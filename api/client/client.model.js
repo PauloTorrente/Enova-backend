@@ -102,6 +102,14 @@ const Client = sequelize.define('Client', {
     type: DataTypes.DATE,
     allowNull: true,
     field: 'last_failed_attempt'
+  },
+  // Techdemo payment scaffolding — can go negative (no real payment
+  // gateway is wired up yet, so this is bookkeeping, not an enforced
+  // balance). See api/payments/payments.service.js.
+  creditBalance: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0,
+    field: 'credit_balance'
   }
 }, {
   tableName: 'clients',

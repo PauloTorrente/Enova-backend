@@ -1,6 +1,7 @@
 import Survey from './surveys.model.js';
 import Result from '../results/results.model.js';
 import { mapResponseItemToResultEntry } from './surveys.permissive.answer-mapper.util.js';
+import * as paymentsService from '../payments/payments.service.js';
 
 // Permissive survey response handler: unlike
 // surveys.response.validation.controller.js, this endpoint tolerates
@@ -22,8 +23,14 @@ export const respondToSurveyPermissive = async (req, res) => {
       return res.status(404).json({ message: 'Survey not found' });
     }
 
-    const responseCount = await Result.count({ where: { surveyId: survey.id } });
-    if (survey.responseLimit !== null && responseCount >= survey.responseLimit) {
+    // responseLimit caps RESPONDENTS, not answer rows — see the matching
+    // comment in surveys.response.validation.controller.js.
+    const respondentCount = await Result.count({
+      where: { surveyId: survey.id },
+      distinct: true,
+      col: 'userId'
+    });
+    if (survey.responseLimit !== null && respondentCount >= survey.responseLimit) {
       return res.status(400).json({ message: 'This survey has reached the maximum response limit.' });
     }
 
@@ -53,6 +60,16 @@ export const respondToSurveyPermissive = async (req, res) => {
     }
 
     const savedResults = await Result.bulkCreate(resultEntries);
+
+    // Techdemo payment scaffolding — same non-blocking payout as the
+    // strict /respond endpoint (see surveys.response.validation.controller.js).
+    if (userId) {
+      try {
+        await paymentsService.payRespondentForSurvey({ userId, survey });
+      } catch (paymentError) {
+        console.error(`[surveys.permissive.response] payRespondentForSurvey failed (userId=${userId}, surveyId=${survey.id}):`, paymentError.message);
+      }
+    }
 
     return res.status(200).json({
       message: 'Response recorded successfully',

@@ -36,7 +36,7 @@ export const saveResponse = async (surveyId, userId, response) => {
         ? normalizeOtherOptionResponse(question, item.answer)
         : item.answer;
 
-      return { surveyId, userId, question: questionText, answer: finalAnswer };
+      return { surveyId, userId, question: questionText, questionId: item.questionId, answer: finalAnswer };
     });
 
     const results = await Result.bulkCreate(resultEntries);

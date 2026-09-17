@@ -25,12 +25,14 @@
     "googleapis": "^144.0.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.3.0",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",
     "pdfkit": "^0.20.1",
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.5",
+    "sharp": "^0.35.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

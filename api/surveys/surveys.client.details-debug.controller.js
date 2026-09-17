@@ -26,6 +26,7 @@ export const debugSurveyDetails = async (req, res) => {
     }
 
     const responseCount = await Result.count({ where: { surveyId } });
+    const respondentCount = await Result.count({ where: { surveyId }, distinct: true, col: 'userId' });
     const questions = Array.isArray(survey.questions) ? survey.questions : JSON.parse(survey.questions || '[]');
 
     const questionsAnalysis = questions.map((question, index) => ({
@@ -50,8 +51,9 @@ export const debugSurveyDetails = async (req, res) => {
       },
       statistics: {
         responseCount,
+        respondentCount,
         responsePercentage: survey.responseLimit
-          ? Math.min(100, Math.round((responseCount / survey.responseLimit) * 100))
+          ? Math.min(100, Math.round((respondentCount / survey.responseLimit) * 100))
           : null,
         isExpired: new Date() > new Date(survey.expirationTime),
         daysUntilExpiration: Math.ceil((new Date(survey.expirationTime) - new Date()) / (1000 * 60 * 60 * 24))

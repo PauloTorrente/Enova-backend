@@ -59,6 +59,14 @@ export const getMySurveys = async (req, res) => {
 const buildSurveyStats = async (survey) => {
   try {
     const responseCount = await Result.count({ where: { surveyId: survey.id } });
+    // responseLimit caps respondents ("100 encuestados"), not answer rows
+    // (one respondent leaves one Result row per question) — responsePercentage
+    // and the dashboard's progress bar need this, not the raw row count.
+    const respondentCount = await Result.count({
+      where: { surveyId: survey.id },
+      distinct: true,
+      col: 'userId'
+    });
 
     const now = new Date();
     const expirationTime = new Date(survey.expirationTime);
@@ -79,11 +87,12 @@ const buildSurveyStats = async (survey) => {
       createdAt: survey.createdAt,
       updatedAt: survey.updatedAt,
       responseCount,
+      respondentCount,
       clientId: survey.clientId,
       isExpired: now > expirationTime,
       daysUntilExpiration: Math.ceil((expirationTime - now) / (1000 * 60 * 60 * 24)),
       responsePercentage: survey.responseLimit
-        ? Math.min(100, Math.round((responseCount / survey.responseLimit) * 100))
+        ? Math.min(100, Math.round((respondentCount / survey.responseLimit) * 100))
         : null
     };
   } catch (error) {

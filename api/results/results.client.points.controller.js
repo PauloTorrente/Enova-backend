@@ -10,8 +10,11 @@ export const awardPointsToUser = async (req, res) => {
   const { points } = req.body;
 
   try {
-    if (!points || typeof points !== 'number') {
-      return res.status(400).json({ message: 'Points must be a valid number' });
+    if (typeof points !== 'number' || !Number.isInteger(points) || points === 0) {
+      return res.status(400).json({ message: 'Points must be a non-zero whole number' });
+    }
+    if (points < -5 || points > 5) {
+      return res.status(400).json({ message: 'Points must be between -5 and 5' });
     }
 
     await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);

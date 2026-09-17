@@ -112,8 +112,82 @@ const User = sequelize.define(
     },
     educationLevel: {
       type: DataTypes.STRING,
-      allowNull: true, 
+      allowNull: true,
       field: 'education_level',
+    },
+    // --- Filtro Preliminar (registration) fields added on top of the
+    // original columns above. whatsapp reuses phone_number, sexo reuses
+    // gender, ciudad reuses city — see docs/registro-filtro-preliminar.md.
+    country: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'country',
+    },
+    postalCode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'postal_code',
+    },
+    birthYear: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'birth_year',
+    },
+    educationCode: {
+      // 1-5 code per the Filtro Preliminar spec (1 = universitario+ ... 5 = sin estudios).
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'education_code',
+    },
+    occupation: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'occupation',
+    },
+    hasChildren: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      field: 'has_children',
+    },
+    consentAccepted: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'consent_accepted',
+    },
+    consentDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'consent_date',
+    },
+    consentVersion: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'consent_version',
+    },
+    whatsappVerified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'whatsapp_verified',
+    },
+    whatsappOtpCode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'whatsapp_otp_code',
+    },
+    whatsappOtpExpires: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'whatsapp_otp_expires',
+    },
+    // Paid once, the first time the respondent's basic profile (phone +
+    // gender — the same fields opina-cash's profile-completeness gate
+    // requires before responding to surveys) becomes complete. See
+    // api/payments/payments.service.js#payBasicProfileCompletionReward.
+    // "Completa tu registro y vas a ganar X" from the Aug 2026 meeting.
+    basicProfileRewardPaid: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'basic_profile_reward_paid',
     },
     walletBalance: {
       type: DataTypes.FLOAT,

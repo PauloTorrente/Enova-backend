@@ -22,8 +22,10 @@ export const initializeAnalytics = (survey, results) => {
       expirationTime: survey.expirationTime,
       status: survey.status,
       responseLimit: survey.responseLimit,
+      // responseLimit is a cap on respondents ("100 encuestados"), not on
+      // answer rows — compare it against uniqueUsers, not results.length.
       completionRate: survey.responseLimit
-        ? Math.min(100, Math.round((results.length / survey.responseLimit) * 100))
+        ? Math.min(100, Math.round((uniqueUsers / survey.responseLimit) * 100))
         : null
     },
 
