@@ -1,0 +1,291 @@
+GUÍA RÁPIDA — Filtro Preliminar, Perfilación Quirúrgica, Upload y Pagos
+=========================================================================
+Base: http://localhost:3000/api  (o el dominio de producción + /api)
+Antes de usar: correr en la base de datos (una sola vez):
+  Enova-backend/scripts/2026-09-03_run_all_in_neon.sql   (ya hecho)
+  Enova-backend/scripts/2026-09-03c_survey_driven_profiling.sql   (falta correr)
+  Enova-backend/scripts/2026-09-11_conekta_topup.sql   (falta correr)
+  Enova-backend/scripts/2026-09-11b_basic_profile_reward.sql   (falta correr)
+
+Login primero (para tener las cookies + csrfToken de todo lo demás):
+
+URL: POST /auth/login
+JSON:
+{ "email": "tu@correo.com", "password": "tuClave" }
+Explicación: da cookies de sesión + un "csrfToken" en la respuesta. Copia
+ese csrfToken y ponlo en el header X-CSRF-Token de cada POST/PATCH de abajo.
+
+Para /media/upload usa este login en vez del de arriba:
+URL: POST /clients/login
+JSON: { "email": "cliente@empresa.com", "password": "tuClave" }
+
+=========================================================================
+1. SUBIR IMAGEN
+=========================================================================
+URL: POST /media/upload
+JSON: no es JSON — es form-data, campo "file" (tipo File) con la imagen
+Explicación: convierte cualquier imagen (jpg/png/jfif/gif) a .webp y
+devuelve la URL pública. Esa URL se pone en question.imagem.
+
+=========================================================================
+2. REGISTRO (Filtro Preliminar)
+=========================================================================
+URL: POST /auth/register
+JSON:
+{
+  "email": "test@example.com",
+  "password": "unaClaveSegura123",
+  "role": "user",
+  "firstName": "Pepe",
+  "lastName": "Prueba",
+  "phone_number": "+584121234567",
+  "gender": "Hombre",
+  "city": "Caracas",
+  "country": "Venezuela",
+  "postalCode": "1010",
+  "birthYear": 1990,
+  "educationCode": 2,
+  "occupation": "Empleado/a",
+  "hasChildren": false,
+  "consentAccepted": true,
+  "consentVersion": "v1"
+}
+Explicación: crea la cuenta. Si "consentAccepted" no es true, no crea nada
+(responde 400).
+
+URL: PATCH /users/me
+JSON: { "country": "México", "occupation": "Estudiante" }
+Explicación: edita cualquiera de esos mismos campos después. Si con este
+PATCH el perfil básico (phone_number + gender) queda completo por primera
+vez, se paga automáticamente un monto único (BASIC_PROFILE_COMPLETION_REWARD
+en config/paymentsConfig.js — "completa tu registro y vas a ganar X" de la
+reunión) y la respuesta trae "basicProfileRewardJustPaid" con el monto.
+Nunca se paga dos veces (User.basicProfileRewardPaid lo bloquea).
+
+URL: POST /auth/whatsapp/send-otp
+JSON: (vacío)
+Explicación: genera un código de verificación. Como no hay proveedor de
+WhatsApp conectado, el código viene en la respuesta ("devCode") en vez de
+llegar por WhatsApp de verdad.
+
+URL: POST /auth/whatsapp/verify-otp
+JSON: { "code": "482913" }
+Explicación: confirma el código y marca el WhatsApp como verificado.
+
+=========================================================================
+3. PERFILACIÓN QUIRÚRGICA (encuesta paga) — la responde como CUALQUIER encuesta
+=========================================================================
+IMPORTANTE: esto NO es un formulario aparte que el usuario llena por API.
+Es una encuesta real del sistema (como cualquier otra) — el backend calcula
+el Graffar A PARTIR de las respuestas que la persona da en esa encuesta,
+usando el mismo POST /surveys/respond de siempre. Los pasos:
+
+3.1) Crear la encuesta (una vez, la hace un admin o un cliente)
+  URL: POST /surveys
+  JSON (resumido — repetir el patrón de "questions" para las ~20 preguntas
+  del documento, una por cada A1-A10/B1-B3/C1-C4/D1-D2/control_atencion):
+  {
+    "title": "Perfilación Quirúrgica",
+    "expirationTime": "2027-01-01T00:00:00Z",
+    "surveyType": "surgical_profiling",
+    "rewardPerResponse": 20,
+    "questions": [
+      {
+        "questionId": "ocupacion_sosten",
+        "question": "¿Cuál describe mejor la ocupación de esa persona?",
+        "type": "multiple",
+        "multipleSelections": "no",
+        "options": [
+          "Profesional, directivo/a o dueño/a de una empresa grande",
+          "Técnico/a, mando medio, o comerciante/productor mediano",
+          "Empleado/a administrativo u operativo, o pequeño comerciante",
+          "Obrero/a o trabajador/a por cuenta propia estable",
+          "Trabajo ocasional o informal, sin ingreso fijo"
+        ]
+      }
+    ]
+  }
+  Explicación: "surveyType": "surgical_profiling" es lo que le dice al
+  backend "esta encuesta calcula Graffar cuando alguien la responda".
+  "rewardPerResponse" es cuánto se le paga por completarla — más alto que
+  una encuesta normal, porque pide más información (la idea de "etapas
+  que pagan más" que veníamos hablando).
+
+  REGLA DE ORO: el "questionId" de cada pregunta y, en las de opción
+  múltiple, el TEXTO EXACTO de cada opción, tienen que coincidir con los
+  de config/graffarQuestionMap.js — si el texto cambia una coma, esa
+  pregunta deja de alimentar la fórmula. La lista completa de questionIds
+  y textos de opción exactos está en ese archivo (copiados del documento
+  original palabra por palabra).
+
+  Los 7 campos sin los que la fórmula no corre: ocupacion_sosten,
+  educacion_sosten, fuente_ingreso (1 a 5 cada uno), tenencia, banos,
+  personas. El resto de las ~20 preguntas es libre/informativo.
+
+3.2) El respondiente responde (el flujo normal de siempre)
+  URL: POST /surveys/respond?accessToken=<el token de esa encuesta>
+  JSON: [ { "questionId": "ocupacion_sosten", "answer": "Un sueldo fijo mensual" }, ... ]
+  Explicación: exactamente el mismo endpoint que cualquier encuesta. Al
+  guardar las respuestas, si la encuesta es surveyType: "surgical_profiling",
+  el backend calcula el Graffar solo y lo guarda — no hay que llamar nada
+  más. También paga el rewardPerResponse de esa encuesta (sección 4).
+
+URL: GET /profiling/surgical/me
+JSON: (sin body)
+Explicación: devuelve solo el resultado ya calculado.
+
+URL: GET /profiling/summary
+JSON: (sin body)
+Explicación: devuelve TODO junto y ya legible — Filtro Preliminar +
+Perfilación Quirúrgica + cuánto lleva ganado. El mejor endpoint para
+demostrar/mostrar resultados de una sola vez.
+
+3.3) Atajo solo para probar la fórmula (QA, no es el flujo real)
+  URL: POST /profiling/surgical
+  JSON: { "pais": "México", "ocupacion_sosten": 2, "educacion_sosten": 1, "fuente_ingreso": 2, "tenencia": "propia_pagandose", "banos": 2, "personas": 3, "posesiones": { "auto": true, "banca": true, "internet": true }, "control_atencion": "De acuerdo" }
+  Explicación: mismo cálculo, pero recibiendo el JSON ya armado a mano en
+  vez de leerlo de una encuesta real. Sirve para probar la fórmula rápido;
+  ningún respondiente real llega a este endpoint.
+
+=========================================================================
+4. PAGOS (techdemo, montos de prueba en MXN)
+=========================================================================
+URL: GET /payments/me
+JSON: (sin body, login de Usuario)
+Explicación: saldo actual (walletBalance) + historial de lo que ganó
+respondiendo encuestas. Se llena solo cuando responde una encuesta.
+
+URL: GET /payments/client/me
+JSON: (sin body, login de Cliente)
+Explicación: saldo actual (creditBalance) + historial de lo que se le
+cobró por crear encuestas. Se descuenta solo al crear cada encuesta.
+
+Niveles de recompensa (ejemplo de la reunión, no es precio final):
+  Completar perfil básico (una vez)         -> BASIC_PROFILE_COMPLETION_REWARD
+  Encuesta normal                           -> Survey.rewardPerResponse (o DEFAULT_RESPONDENT_REWARD)
+  Perfilación Quirúrgica (nivel avanzado)   -> configurar un rewardPerResponse más alto en esa encuesta
+  Perfil psicográfico (nivel más profundo)  -> ídem, más alto todavía — todavía no existe como encuesta separada
+En la reunión lo ejemplificaron como 1/2/5 dólares para los tres niveles
+de encuesta (básico/avanzado/psicográfico) — es solo la proporción, no el
+monto real en MXN.
+
+=========================================================================
+5. ARQUITECTURA DE ETAPAS — pendiente de decisión (todavía no implementado)
+=========================================================================
+Hoy el pago está atado a "respondió una encuesta", no a "completó una
+etapa de perfil". La idea real es pagar MÁS cuanto más profunda es la
+información — 4 etapas, no 2:
+
+  Etapa 1 — Registro mínimo (nombre, email, contraseña)
+    Existe hoy tal cual, sin cambios.
+
+  Etapa 2 — Info básica que YA sería pagada (teléfono, género, ciudad —
+  lo mismo que opina-cash ya exige antes de responder)
+    Existe el campo, pero no el pago por completarla. Hoy solo se paga
+    cuando la persona responde una ENCUESTA, no cuando completa el PERFIL.
+
+  Etapa 3 — Perfilación Quirúrgica (datos del hogar, fórmula Graffar)
+    Ya resuelto: es una encuesta real (surveyType: 'surgical_profiling',
+    ver sección 3) con su propio "rewardPerResponse" — puede pagar más que
+    una encuesta normal sin tocar código, solo configurando esa encuesta.
+
+  Etapa 4 — Información aún más profunda ("Módulo D — actitudes" del
+  documento original, quedó opcional)
+    Está mezclada dentro de la etapa 3 como campos opcionales, no es una
+    etapa pagada separada.
+
+Lo que falta para que esto funcione como 4 etapas de verdad: agregar en
+config/paymentsConfig.js un monto por etapa (STAGE_2_REWARD,
+STAGE_3_REWARD, STAGE_4_REWARD, crecientes), y que cada endpoint que
+completa una etapa dispare el pago de ESA etapa una sola vez (con una
+bandera para no pagar dos veces si la persona reenvía el mismo formulario).
+No se implementó todavía — es una decisión de arquitectura a confirmar
+antes de tocar el código.
+
+=========================================================================
+6. ESTUDIAR PARA CONECTAR PAGOS REALES (primer paso, no implementado)
+=========================================================================
+Hoy nada de esto mueve dinero real — es un libro de transacciones nada
+más. Son dos flujos separados, con herramientas distintas:
+
+COBRAR al cliente (quien crea la encuesta):
+  - Pasarelas con sandbox gratis en México: Conekta, OpenPay (BBVA),
+    Mercado Pago.
+  - Qué mirar en su documentación: cómo crear un cargo con tarjeta, cómo
+    aceptar OXXO (voucher para pagar en efectivo) y SPEI (transferencia),
+    y cómo funciona su webhook (aviso asíncrono de "pago confirmado" —
+    el cliente no paga al instante, la pasarela avisa después).
+  - Punto de partida recomendado: Conekta es el más simple para probar
+    primero. Implementar solo esta mitad (cobrar) ya resuelve la parte
+    más fácil del problema.
+
+PAGAR al respondiente (quien responde/completa su perfil):
+  - Esto es "dispersión" (payout), no "cargo" (charge) — es una API
+    distinta de la de arriba.
+  - Opciones en México: SPEI vía un proveedor como STP, o las APIs de
+    payout de Mercado Pago / PayPal Payouts (este último más para fuera
+    de México).
+  - Antes de pagar dinero real a una persona física hace falta KYC
+    (verificar identidad — CURP/INE) para montos grandes, si no queda
+    abierta la puerta a fraude (cuentas falsas cobrando muchas veces —
+    para eso ya existe flag_revisar/flag_atencion en la Perfilación
+    Quirúrgica, pero eso es una señal, no una verificación de identidad).
+
+Antes de escalar en volumen, vale la pena que un abogado revise si
+mantener saldos de terceros (walletBalance del respondiente, creditBalance
+del cliente) por mucho tiempo empieza a parecerse a una operación regulada
+por la Ley Fintech mexicana (instituciones de tecnología financiera). No
+bloquea el techdemo, pero crece en importancia con el volumen real.
+
+=========================================================================
+7. CONEKTA — recarga de saldo con dinero real (test mode)
+=========================================================================
+Antes de usar: agregar en el .env (nunca en el código ni en el commit):
+  CONEKTA_PRIVATE_KEY=<llave privada de TEST del panel de Conekta>
+  CONEKTA_WEBHOOK_SECRET=<cualquier string largo, lo inventas tú>
+Y correr:
+  Enova-backend/scripts/2026-09-11_conekta_topup.sql
+
+Y en el panel de Conekta (Webhooks): agregar una URL apuntando a
+  https://<tu-dominio>/api/payments/conekta/webhook/<el mismo CONEKTA_WEBHOOK_SECRET>
+para el evento "order.paid".
+
+URL: POST /payments/client/topup
+JSON: { "amountMXN": 500 }
+Explicación (Auth: Cliente): crea una orden de pago hospedada en Conekta
+por ese monto y devuelve el link de pago. El saldo NO se acredita todavía
+acá — solo cuando Conekta confirma el pago por webhook.
+
+Respuesta 201: { "success": true, "checkoutUrl": "https://pay.conekta.com/...", "orderId": "..." }
+
+Qué hacer con "checkoutUrl": abrirlo en el navegador, pagar con una
+tarjeta de prueba de Conekta (las tarjetas de test están en su
+documentación — no es una tarjeta real).
+
+Después de pagar, Conekta llama solo al webhook de arriba. Ahí es cuando
+GET /payments/client/me muestra el creditBalance actualizado.
+
+AVISO: este código se escribió leyendo la documentación pública de
+Conekta, sin poder probarlo contra su API real (no había llave de test
+disponible todavía). Si algo falla en la primera prueba real, revisar
+primero api/payments/conekta.client.js — ahí está aislado todo lo
+específico de Conekta, para que un ajuste de nombre de campo no toque el
+resto del sistema. La verificación del webhook hoy es un secreto simple en
+la URL, no la firma real de Conekta — reforzar esto antes de mover dinero
+real de producción.
+
+=========================================================================
+LO QUE FALTA (para no asumir que ya está hecho)
+=========================================================================
+- No hay UI visual en Enova-Pulse/opina-cash para nada de esto — son solo
+  endpoints de backend.
+- No hay proveedor real de WhatsApp ni pasarela de pago real conectados.
+- Los montos de pago (5 MXN por respuesta, 50 MXN por crear encuesta) y los
+  cortes de estrato son valores de prueba, no precios finales.
+- Sin saldo, un cliente igual puede crear encuestas (queda en negativo, no
+  se bloquea) — falta decidir esa regla de negocio.
+- Conekta (sección 7) está escrito pero NUNCA probado contra su API real —
+  nombres de campo podrían no coincidir. El webhook usa un secreto simple
+  en la URL, no la firma real de Conekta. Solo cubre "cobrar" (recargar
+  saldo); "pagar" al respondiente (payout) sigue sin ningún proveedor
+  conectado.
