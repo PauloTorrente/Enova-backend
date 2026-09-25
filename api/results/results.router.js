@@ -2,7 +2,7 @@ import express from 'express';
 import * as resultsController from './results.controller.js';
 import { authenticateAdmin, authenticateUser, authenticateClient } from '../../middlewares/auth.middleware.js';
 import { authenticateClientAdmin } from '../../middlewares/client.auth.middleware.js';
-import { evaluateRespondentWithAI, askAIAboutRespondent } from './results.client.ai-evaluation.controller.js';
+import { evaluateRespondentWithAI, askAIAboutSurvey } from './results.client.ai-evaluation.controller.js';
 
 const router = express.Router(); 
 
@@ -74,9 +74,10 @@ router.post('/client-admin/survey/:surveyId/user/:userId/award-points', authenti
 // auto-applied (see results.client.ai-evaluation.controller.js).
 router.post('/client-admin/survey/:surveyId/user/:userId/evaluate-ai', authenticateClientAdmin, evaluateRespondentWithAI);
 
-// Route for client admin to ask the AI a free-form question about one
-// respondent's answers — locked to that scope by a strict system prompt.
-router.post('/client-admin/survey/:surveyId/user/:userId/ask-ai', authenticateClientAdmin, askAIAboutRespondent);
+// Route for client admin to ask the AI a free-form question about ALL of
+// a survey's responses together (not one respondent) — locked to that
+// scope by a strict system prompt.
+router.post('/client-admin/survey/:surveyId/ask-ai', authenticateClientAdmin, askAIAboutSurvey);
 
 // Route for client admin dashboard with global statistics
 router.get('/client-admin/dashboard', authenticateClientAdmin, resultsController.getAdminDashboard);
