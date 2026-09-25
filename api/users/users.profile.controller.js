@@ -80,19 +80,32 @@ export const updateCurrentUser = async (req, res) => {
     }
 
     // "Completa tu registro y vas a ganar X" — one-time reward the instant
-    // the basic profile (phone + gender) becomes complete. Never blocks
-    // the profile update itself if it fails.
-    let rewardJustPaid = 0;
+    // the basic profile (phone + gender) becomes complete, and a second
+    // one-time reward once the Filtro Preliminar step (country, postal
+    // code, birth year, education, occupation) becomes complete too. A
+    // single PATCH could complete either, both, or neither — never blocks
+    // the profile update itself if either reward call fails.
+    let basicRewardJustPaid = 0;
     try {
-      rewardJustPaid = await paymentsService.payBasicProfileCompletionReward(updatedUser);
+      basicRewardJustPaid = await paymentsService.payBasicProfileCompletionReward(updatedUser);
     } catch (rewardError) {
       console.error(`[users.profile] payBasicProfileCompletionReward failed (userId=${userId}):`, rewardError.message);
     }
 
+    let filtroPreliminarRewardJustPaid = 0;
+    try {
+      filtroPreliminarRewardJustPaid = await paymentsService.payFiltroPreliminarCompletionReward(updatedUser);
+    } catch (rewardError) {
+      console.error(`[users.profile] payFiltroPreliminarCompletionReward failed (userId=${userId}):`, rewardError.message);
+    }
+
+    const rewardJustPaid = basicRewardJustPaid + filtroPreliminarRewardJustPaid;
+
     const { password, confirmationToken, phone_number, ...safeUser } = updatedUser.toJSON();
     safeUser.hasphone_number = !!phone_number;
     safeUser.walletBalance = (updatedUser.walletBalance || 0) + rewardJustPaid;
-    if (rewardJustPaid) safeUser.basicProfileRewardJustPaid = rewardJustPaid;
+    if (basicRewardJustPaid) safeUser.basicProfileRewardJustPaid = basicRewardJustPaid;
+    if (filtroPreliminarRewardJustPaid) safeUser.filtroPreliminarRewardJustPaid = filtroPreliminarRewardJustPaid;
 
     res.json(safeUser);
   } catch (error) {

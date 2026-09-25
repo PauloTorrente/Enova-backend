@@ -6,12 +6,26 @@ import {
   DEFAULT_RESPONDENT_REWARD,
   DEFAULT_SURVEY_CREATION_FEE,
   BASIC_PROFILE_COMPLETION_REWARD,
+  FILTRO_PRELIMINAR_COMPLETION_REWARD,
 } from '../../config/paymentsConfig.js';
 
 // Same definition of "complete" opina-cash's profile gate uses (see
 // useIncompleteProfile.js) — kept here too since this is what decides
 // whether the one-time reward fires, not just whether the UI nags the user.
 export const isBasicProfileComplete = (user) => Boolean(user.phone_number) && Boolean(user.gender);
+
+// The second onboarding session, right after the basic profile: country,
+// postal code, birth year, education, occupation. hasChildren is checked
+// for "answered at all" (not "truthy") since "no hijos" is a valid,
+// complete answer.
+export const isFiltroPreliminarComplete = (user) => (
+  Boolean(user.country) &&
+  Boolean(user.postalCode) &&
+  Boolean(user.birthYear) &&
+  Boolean(user.educationCode) &&
+  Boolean(user.occupation) &&
+  user.hasChildren !== null && user.hasChildren !== undefined
+);
 
 // Credits the respondent's existing wallet (User.walletBalance, already
 // used elsewhere for cash-out) and leaves an audit row. Techdemo: no real
@@ -77,6 +91,27 @@ export const payBasicProfileCompletionReward = async (user) => {
   await user.update({ basicProfileRewardPaid: true });
   await PaymentTransaction.create({
     kind: 'basic_profile_completion',
+    direction: 'credit',
+    amount,
+    currency: CURRENCY,
+    userId: user.id,
+  });
+
+  return amount;
+};
+
+// The second half of "completa tu registro y vas a ganar X": once the
+// basic profile reward has fired, opina-cash sends the respondent straight
+// into the Filtro Preliminar step, which pays this second one-time reward
+// on completion — guarded by User.filtroPreliminarRewardPaid the same way.
+export const payFiltroPreliminarCompletionReward = async (user) => {
+  if (user.filtroPreliminarRewardPaid || !isFiltroPreliminarComplete(user)) return 0;
+
+  const amount = FILTRO_PRELIMINAR_COMPLETION_REWARD;
+  await usersService.updateWalletBalance(user.id, amount);
+  await user.update({ filtroPreliminarRewardPaid: true });
+  await PaymentTransaction.create({
+    kind: 'filtro_preliminar_completion',
     direction: 'credit',
     amount,
     currency: CURRENCY,

@@ -189,6 +189,15 @@ const User = sequelize.define(
       defaultValue: false,
       field: 'basic_profile_reward_paid',
     },
+    // Paid once, the first time the Filtro Preliminar fields (country,
+    // postalCode, birthYear, educationCode, occupation) become complete —
+    // the second onboarding session, right after the basic profile above.
+    // See api/payments/payments.service.js#payFiltroPreliminarCompletionReward.
+    filtroPreliminarRewardPaid: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'filtro_preliminar_reward_paid',
+    },
     walletBalance: {
       type: DataTypes.FLOAT,
       defaultValue: 0, 

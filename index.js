@@ -12,6 +12,7 @@ import router from './api/router.js';
 import './api/users/cleanUnconfirmedUsers.js'; 
 import User from './api/users/users.model.js';
 import Survey from './api/surveys/surveys.model.js';
+import Client from './api/client/client.model.js';
 import Result from './api/results/results.model.js';
 
 const app = express();
@@ -23,6 +24,7 @@ const allowedOrigins = [
   'https://www.opinacash.com',
   'https://opinacash.com',
   'http://localhost:5174',
+  'http://localhost:5175',
   'http://localhost:5173',
   'https://enova-pulse-rwpd.vercel.app',
   'https://enova-pulse-rne2.vercel.app',
@@ -138,3 +140,7 @@ app.use((err, req, res, next) => {
 // Setup database associations
 Result.associate({ User, Survey });
 User.associate({ Result });
+// Was defined in surveys.model.js but never actually invoked — every
+// `include: [{ model: Client, as: 'client' }]` on Survey (getAllSurveys,
+// among others) threw "Client is not associated to Survey!" until this ran.
+Survey.associate({ Client, Result });

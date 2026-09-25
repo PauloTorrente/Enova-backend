@@ -20,4 +20,10 @@ export const DEFAULT_SURVEY_CREATION_FEE = 50;
 // same fields opina-cash's profile-completeness gate requires). This is
 // "completa tu registro y vas a ganar X" from the meeting — paid once,
 // tracked by User.basicProfileRewardPaid so it can never fire twice.
-export const BASIC_PROFILE_COMPLETION_REWARD = 10;
+export const BASIC_PROFILE_COMPLETION_REWARD = 50;
+
+// One-time reward for completing the Filtro Preliminar step (country,
+// postal code, birth year, education, occupation) — the second onboarding
+// session opina-cash sends the respondent to right after the basic
+// profile above. Paid once, tracked by User.filtroPreliminarRewardPaid.
+export const FILTRO_PRELIMINAR_COMPLETION_REWARD = 50;
