@@ -1,5 +1,6 @@
 import * as resultsService from './results.service.js';
 import { verifyClientAccessWithPrivileges } from './results.access.service.js';
+import SurveyResponseEvaluation from './response-evaluation.model.js';
 
 // Same shape as results.client.detailed.controller.js, but adds each
 // respondent's loyalty score and an aggregate average — used by the
@@ -15,6 +16,9 @@ export const getSurveyResultsWithScores = async (req, res) => {
       return res.status(404).json({ message: 'No responses found for this survey.' });
     }
 
+    const evaluations = await SurveyResponseEvaluation.findAll({ where: { surveyId }, attributes: ['userId'] });
+    const evaluatedUserIds = new Set(evaluations.map((e) => e.userId));
+
     const formatted = responses.map((r) => ({
       id: r.id,
       question: r.question,
@@ -28,7 +32,8 @@ export const getSurveyResultsWithScores = async (req, res) => {
             city: r.user.city,
             area: r.user.residentialArea,
             gender: r.user.gender,
-            age: r.user.age
+            age: r.user.age,
+            evaluated: evaluatedUserIds.has(r.user.id)
           }
         : null
     }));

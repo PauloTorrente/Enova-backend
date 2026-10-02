@@ -1,6 +1,7 @@
 import { verifyClientAccessWithPrivileges } from './results.access.service.js';
 import Result from './results.model.js';
 import User from '../users/users.model.js';
+import SurveyResponseEvaluation from './response-evaluation.model.js';
 
 // Awards loyalty points to one user for responding to a survey. This is
 // the only mutating endpoint in the results.client.* controllers — every
@@ -32,6 +33,11 @@ export const awardPointsToUser = async (req, res) => {
     const currentScore = user.score || 0;
     const newScore = currentScore + points;
     await user.update({ score: newScore });
+
+    // Marks this respondent's answers to THIS survey as reviewed — lets
+    // the survey list show "Evaluado" once every respondent has one of
+    // these, independent of what score they actually got.
+    await SurveyResponseEvaluation.findOrCreate({ where: { surveyId, userId } });
 
     res.status(200).json({
       success: true,

@@ -2,6 +2,7 @@ import Survey from '../surveys/surveys.model.js';
 import User from '../users/users.model.js';
 import Result from './results.model.js';
 import Client from '../client/client.model.js';
+import SurveyResponseEvaluation from './response-evaluation.model.js';
 import { sequelize } from '../../config/database.js';
 
 // Cross-client endpoints, restricted to client_admin. Regular clients
@@ -29,6 +30,19 @@ export const getAllSurveys = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    // Two grouped queries instead of one per survey — respondentCount is
+    // how many distinct people answered, evaluatedCount is how many of
+    // those already have a SurveyResponseEvaluation row (see award-points).
+    // A survey is "Evaluado" once the two match (and at least one person answered).
+    const [respondentRows] = await sequelize.query(
+      'SELECT survey_id, COUNT(DISTINCT user_id) AS count FROM results GROUP BY survey_id'
+    );
+    const [evaluatedRows] = await sequelize.query(
+      'SELECT survey_id, COUNT(*) AS count FROM survey_response_evaluations GROUP BY survey_id'
+    );
+    const respondentCountBySurvey = Object.fromEntries(respondentRows.map((r) => [r.survey_id, Number(r.count)]));
+    const evaluatedCountBySurvey = Object.fromEntries(evaluatedRows.map((r) => [r.survey_id, Number(r.count)]));
+
     const formattedSurveys = surveys.map((survey) => ({
       id: survey.id,
       title: survey.title,
@@ -49,7 +63,9 @@ export const getAllSurveys = async (req, res) => {
         : null,
       questionsCount: survey.questions
         ? (typeof survey.questions === 'string' ? JSON.parse(survey.questions).length : survey.questions.length)
-        : 0
+        : 0,
+      respondentCount: respondentCountBySurvey[survey.id] || 0,
+      evaluatedCount: evaluatedCountBySurvey[survey.id] || 0,
     }));
 
     return res.status(200).json({
