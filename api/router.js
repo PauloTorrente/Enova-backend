@@ -7,6 +7,7 @@ import resultsRouter from './results/results.router.js'; // Importing the result
 import mediaRouter from './media/media.router.js'; // Importing the media upload routes
 import profilingRouter from './profiling/profiling.router.js'; // Importing the Perfilación Quirúrgica routes
 import paymentsRouter from './payments/payments.router.js'; // Importing the payment ledger routes
+import priceRouter from './price/price.router.js'; // Importing the Enova Pulse Price routes
 
 // Creating an Express Router instance
 const router = express.Router();
@@ -34,5 +35,9 @@ router.use('/profiling', profilingRouter);
 
 // The '/payments' endpoint exposes the respondent/client payment ledgers
 router.use('/payments', paymentsRouter);
+
+// The '/price' endpoint is Enova Pulse Price — chains/stores/products/
+// observations/alerts for the shelf-price intelligence tool.
+router.use('/price', priceRouter);
 
 export default router;
