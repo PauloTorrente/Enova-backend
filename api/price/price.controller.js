@@ -150,6 +150,38 @@ export const getProductoComparativa = async (req, res) => {
   }
 };
 
+// El inverso de getProductoComparativa: en vez de "este producto, en cada
+// tienda", "esta tienda, cada producto" — el catálogo de precios de una
+// tienda concreta. Lo que hace falta para comparar "banana en Mercadona"
+// contra "banana en Consum" abriendo cada tienda, no cada producto.
+export const getTiendaCatalogo = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const rows = await sequelize.query(
+      `
+      SELECT DISTINCT ON (p.id)
+        p.id AS "productoId", p.marca AS "productoMarca",
+        p.tamano_valor AS "tamanoValor", p.tamano_unidad AS "tamanoUnidad",
+        cat.id AS "categoriaId", cat.nombre AS "categoriaNombre",
+        o.precio_envase AS "precioEnvase", o.precio_promo AS "precioPromo",
+        o.tipo_promo AS "tipoPromo", c.fecha AS "fecha"
+      FROM price_observaciones o
+      JOIN price_capturas c ON c.id = o.captura_id
+      JOIN price_productos p ON p.id = o.producto_id
+      JOIN price_categorias cat ON cat.id = p.categoria_id
+      WHERE c.tienda_id = :tiendaId
+      ORDER BY p.id, c.fecha DESC, o.created_at DESC
+      `,
+      { replacements: { tiendaId: id }, type: QueryTypes.SELECT }
+    );
+
+    res.status(200).json({ success: true, data: rows });
+  } catch (error) {
+    console.error(`[price] getTiendaCatalogo failed (tienda=${id}):`, error.message);
+    res.status(500).json({ success: false, message: 'Failed to fetch tienda catalog', error: error.message });
+  }
+};
+
 // Recomputes every alert type from the full observaciones history — see
 // price.alerts.service.js for the rules. Admin-triggered rather than a
 // cron for now: there's no automated daily ingestion yet (Doc 1/2 describe

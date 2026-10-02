@@ -15,6 +15,7 @@ router.post('/cadenas', price.cadenas.create);
 
 router.get('/tiendas', price.tiendas.list);
 router.post('/tiendas', price.tiendas.create);
+router.get('/tiendas/:id/catalogo', price.getTiendaCatalogo);
 
 router.get('/categorias', price.categorias.list);
 router.post('/categorias', price.categorias.create);
