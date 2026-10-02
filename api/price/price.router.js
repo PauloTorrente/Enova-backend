@@ -21,6 +21,7 @@ router.post('/categorias', price.categorias.create);
 
 router.get('/productos', price.productos.list);
 router.post('/productos', price.productos.create);
+router.get('/productos/:id/comparativa', price.getProductoComparativa);
 
 router.get('/capturas', price.capturas.list);
 router.post('/capturas', price.capturas.create);

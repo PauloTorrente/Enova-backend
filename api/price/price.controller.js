@@ -1,6 +1,8 @@
 // Básico a propósito: list + create for each entity, no update/delete yet
 // (nothing in the spec's acceptance tests needs them for this first pass —
 // see enova-price-schema.sql.txt and the "Enova Pulse Price" instructivo).
+import { QueryTypes } from 'sequelize';
+import { sequelize } from '../../config/database.js';
 import {
   PriceCadena, PriceTienda, PriceCategoria, PriceProducto,
   PriceCaptura, PriceObservacion, PriceAlerta, PriceStagingRechazo, PriceConfig,
@@ -35,7 +37,14 @@ export const capturas = listAndCreate(PriceCaptura, {
   include: [{ model: PriceTienda, as: 'tienda' }, { model: PriceCategoria, as: 'categoria' }],
 });
 export const observaciones = listAndCreate(PriceObservacion, {
-  include: [{ model: PriceCaptura, as: 'captura' }, { model: PriceProducto, as: 'producto' }],
+  include: [
+    {
+      model: PriceCaptura,
+      as: 'captura',
+      include: [{ model: PriceTienda, as: 'tienda', include: [{ model: PriceCadena, as: 'cadena' }] }],
+    },
+    { model: PriceProducto, as: 'producto' },
+  ],
 });
 export const alertas = listAndCreate(PriceAlerta, {
   include: [{ model: PriceProducto, as: 'producto' }, { model: PriceCadena, as: 'cadena' }],
@@ -95,5 +104,47 @@ export const getSummary = async (req, res) => {
   } catch (error) {
     console.error('[price] getSummary failed:', error.message);
     res.status(500).json({ success: false, message: 'Failed to fetch summary', error: error.message });
+  }
+};
+
+// The actual cross-reference the alert rules need (gap entre cadenas, dinero
+// sobre la mesa, etc.): same producto, latest known price per tienda, so
+// they can be compared side by side. DISTINCT ON (tienda_id) picks the most
+// recent captura/observacion per tienda in one pass instead of N queries.
+export const getProductoComparativa = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const rows = await sequelize.query(
+      `
+      SELECT DISTINCT ON (t.id)
+        t.id AS "tiendaId", t.nombre AS "tiendaNombre", t.ciudad AS "tiendaCiudad",
+        ca.id AS "cadenaId", ca.nombre AS "cadenaNombre",
+        o.precio_envase AS "precioEnvase", o.precio_promo AS "precioPromo",
+        o.tipo_promo AS "tipoPromo", o.confianza_extraccion AS "confianzaExtraccion",
+        c.fecha AS "fecha"
+      FROM price_observaciones o
+      JOIN price_capturas c ON c.id = o.captura_id
+      JOIN price_tiendas t ON t.id = c.tienda_id
+      JOIN price_cadenas ca ON ca.id = t.cadena_id
+      WHERE o.producto_id = :productoId
+      ORDER BY t.id, c.fecha DESC, o.created_at DESC
+      `,
+      { replacements: { productoId: id }, type: QueryTypes.SELECT }
+    );
+
+    const precios = rows.map((r) => Number(r.precioEnvase));
+    const min = precios.length ? Math.min(...precios) : null;
+    const max = precios.length ? Math.max(...precios) : null;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        porTienda: rows,
+        rango: min !== null ? { min, max, gap: Number((max - min).toFixed(2)) } : null,
+      },
+    });
+  } catch (error) {
+    console.error(`[price] getProductoComparativa failed (producto=${id}):`, error.message);
+    res.status(500).json({ success: false, message: 'Failed to fetch price comparison', error: error.message });
   }
 };
