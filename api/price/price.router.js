@@ -31,6 +31,7 @@ router.post('/observaciones', price.observaciones.create);
 
 router.get('/alertas', price.alertas.list);
 router.post('/alertas', price.alertas.create);
+router.post('/alertas/recalcular', price.recalcularAlertas);
 
 router.get('/staging-rechazos', price.stagingRechazos.list);
 

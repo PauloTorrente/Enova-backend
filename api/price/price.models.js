@@ -46,6 +46,10 @@ export const PriceProducto = sequelize.define('PriceProducto', {
   formato: { type: DataTypes.STRING, allowNull: true },
   unidadesPack: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1, field: 'unidades_pack' },
   esMarcaDistribuidor: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'es_marca_distribuidor' },
+  // The product(s) the client actually tracks strategically within a
+  // category — "prima vs. líder/distribuidor" and "dinero sobre la mesa"
+  // (price.alerts.service.js) are all relative to this, per categoría.
+  esProductoCliente: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'es_producto_cliente' },
   primeraVezVisto: { type: DataTypes.DATEONLY, allowNull: true, field: 'primera_vez_visto' },
   createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'created_at' },
 }, { tableName: 'price_productos', timestamps: false });

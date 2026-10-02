@@ -7,6 +7,7 @@ import {
   PriceCadena, PriceTienda, PriceCategoria, PriceProducto,
   PriceCaptura, PriceObservacion, PriceAlerta, PriceStagingRechazo, PriceConfig,
 } from './price.models.js';
+import { recalcularAlertas as recalcularAlertasService } from './price.alerts.service.js';
 
 const listAndCreate = (Model, { include } = {}) => ({
   list: async (req, res) => {
@@ -146,5 +147,19 @@ export const getProductoComparativa = async (req, res) => {
   } catch (error) {
     console.error(`[price] getProductoComparativa failed (producto=${id}):`, error.message);
     res.status(500).json({ success: false, message: 'Failed to fetch price comparison', error: error.message });
+  }
+};
+
+// Recomputes every alert type from the full observaciones history — see
+// price.alerts.service.js for the rules. Admin-triggered rather than a
+// cron for now: there's no automated daily ingestion yet (Doc 1/2 describe
+// it as still manual/assisted), so there's no natural "new data landed" hook.
+export const recalcularAlertas = async (req, res) => {
+  try {
+    const alertas = await recalcularAlertasService();
+    res.status(200).json({ success: true, data: { count: alertas.length, alertas } });
+  } catch (error) {
+    console.error('[price] recalcularAlertas failed:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to recalculate alerts', error: error.message });
   }
 };
