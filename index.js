@@ -26,6 +26,7 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:5175',
   'http://localhost:5173',
+  'http://localhost:5180', // Enova Price dev server
   'https://enova-pulse-rwpd.vercel.app',
   'https://enova-pulse-rne2.vercel.app',
   'https://enova-pulse.vercel.app',
