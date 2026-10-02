@@ -4,15 +4,22 @@
 // en configuración, no en código").
 //
 // Deliberately NOT implemented here: "categoría en transición" (a fixed
-// static notice per the doc, not a computed threshold) and unit-normalized
-// "precio neto por unidad" (the doc's full promo-adjusted price math) —
-// this pass compares precio_envase directly, which is enough to exercise
-// every numeric rule but doesn't yet account for NxM/segunda-unidad math.
+// static notice per the doc, not a computed threshold) and the Kizeo
+// import pipeline (T2 — still manual/assisted per Doc 1/2).
+//
+// Which price each rule uses matters and is doc-specified, not a free
+// choice: "prima vs. líder/distribuidor" and "dinero sobre la mesa" compare
+// precio_neto_unidad (promo-adjusted, normalized €/L-€/kg — sección 4);
+// "cruce de euro entero" and "formato de ataque" compare desembolso
+// (precio_envase) on purpose — sección 7's own test case has the attack
+// format alert fire even though its €/L is HIGHER than the client's,
+// because what crosses the euro is the sticker price, not the normalized one.
 import { Op } from 'sequelize';
 import {
   PriceCadena, PriceTienda, PriceCategoria, PriceProducto,
   PriceCaptura, PriceObservacion, PriceAlerta, PriceConfig,
 } from './price.models.js';
+import { precioNetoUnidad } from './price.calculations.js';
 
 const diffDias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 const groupBy = (arr, key) => arr.reduce((acc, item) => {
@@ -23,12 +30,16 @@ const groupBy = (arr, key) => arr.reduce((acc, item) => {
 // Prima/dinero-sobre-la-mesa only mean something comparing the same shelf
 // on the same visit — pairing by fecha alone would average a producto's
 // price across every tienda it's in, which isn't the "premium on this
-// shelf" the rule is about. Matches by (fecha, tiendaId) instead.
-const matchPorTiendaYFecha = (obsA, obsB) => {
+// shelf" the rule is about. Matches by (fecha, tiendaId) instead, on
+// whichever price field the caller asks for (precio = desembolso,
+// precioNeto = €/L-€/kg promo-adjusted).
+const matchPorTiendaYFecha = (obsA, obsB, field = 'precio') => {
   const puntos = [];
   for (const a of obsA) {
     const b = obsB.find((x) => x.fecha === a.fecha && x.tiendaId === a.tiendaId);
-    if (b) puntos.push({ fecha: a.fecha, tiendaId: a.tiendaId, precioA: a.precio, precioB: b.precio });
+    if (b && a[field] != null && b[field] != null) {
+      puntos.push({ fecha: a.fecha, tiendaId: a.tiendaId, precioA: a[field], precioB: b[field] });
+    }
   }
   return puntos;
 };
@@ -40,11 +51,16 @@ const getConfigMap = async () => {
   return map;
 };
 
-// { productoId -> [{ fecha, tiendaId, cadenaId, cadenaNombre, precio, tipoPromo }] }
-// built from EVERY observation (not just the latest), so fecha_primera/
-// fecha_ultima on an alert reflect how long the condition has actually
-// held — which is what "persistencia" (T7) needs to mean anything.
-const loadObservacionesPorProducto = async () => {
+// { productoId -> [{ fecha, tiendaId, cadenaId, cadenaNombre, precio,
+//   precioNeto, tipoPromo }] } built from EVERY observation (not just the
+// latest), so fecha_primera/fecha_ultima on an alert reflect how long the
+// condition has actually held — which is what "persistencia" (T7) needs to
+// mean anything. `precio` = desembolso crudo; `precioNeto` = €/L-€/kg
+// ajustado por promoción (sección 4) — null if the producto's tamaño/
+// unidad is somehow missing, in which case that observation only
+// participates in desembolso-based rules.
+const loadObservacionesPorProducto = async (productos) => {
+  const productosById = new Map(productos.map((p) => [p.id, p]));
   const observaciones = await PriceObservacion.findAll({
     include: [{
       model: PriceCaptura,
@@ -55,6 +71,7 @@ const loadObservacionesPorProducto = async () => {
   const porProducto = new Map();
   for (const o of observaciones) {
     if (!o.captura?.tienda?.cadena) continue;
+    const producto = productosById.get(o.productoId);
     const list = porProducto.get(o.productoId) || [];
     list.push({
       fecha: o.captura.fecha,
@@ -63,6 +80,7 @@ const loadObservacionesPorProducto = async () => {
       cadenaId: o.captura.tienda.cadena.id,
       cadenaNombre: o.captura.tienda.cadena.nombre,
       precio: Number(o.precioEnvase),
+      precioNeto: producto ? precioNetoUnidad(o, producto) : null,
       tipoPromo: o.tipoPromo,
     });
     porProducto.set(o.productoId, list);
@@ -92,15 +110,17 @@ const upsertAlerta = async ({ tipo, regla, productoId, cadenaId = null, valores,
 
 export const recalcularAlertas = async () => {
   const config = await getConfigMap();
-  const porProducto = await loadObservacionesPorProducto();
   const productos = await PriceProducto.findAll();
+  const porProducto = await loadObservacionesPorProducto(productos);
   const categorias = await PriceCategoria.findAll();
   const creadas = [];
 
-  // 1. Diferencia entre cadenas — per producto, per fecha, how wide is the
-  // spread across the stores observed that day; a date only counts if the
-  // spread crosses the threshold AND spans more than one cadena (two
-  // Mercadona branches pricing differently isn't a "between chains" story).
+  // 1. Diferencia entre cadenas — "mismo producto con ≥1€ de diferencia (en
+  // desembolso O en precio neto por litro/kilo), O que cruza un euro
+  // entero" (sección 5: es un OR de tres condiciones, no solo desembolso).
+  // Per producto, per fecha: only counts if the spread spans more than one
+  // cadena (two Mercadona branches pricing differently isn't a
+  // "between chains" story).
   const gapMin = config.diferencia_entre_cadenas_eur?.min ?? 1;
   for (const [productoId, obs] of porProducto) {
     const porFecha = groupBy(obs, 'fecha');
@@ -109,21 +129,27 @@ export const recalcularAlertas = async () => {
     for (const fecha of Object.keys(porFecha).sort()) {
       const items = porFecha[fecha];
       if (new Set(items.map((i) => i.cadenaId)).size < 2) continue;
-      const precios = items.map((i) => i.precio);
-      const gap = Math.max(...precios) - Math.min(...precios);
-      if (gap >= gapMin) {
+      const desembolsos = items.map((i) => i.precio);
+      const netos = items.map((i) => i.precioNeto).filter((n) => n != null);
+      const gapDesembolso = Math.max(...desembolsos) - Math.min(...desembolsos);
+      const gapNeto = netos.length ? Math.max(...netos) - Math.min(...netos) : 0;
+      const cruzaEuro = new Set(desembolsos.map((d) => Math.floor(d))).size > 1;
+      if (gapDesembolso >= gapMin || gapNeto >= gapMin || cruzaEuro) {
         fechasQueCumplen.push(fecha);
         detalleUltimaFecha = items;
       }
     }
     if (fechasQueCumplen.length) {
-      const precios = detalleUltimaFecha.map((i) => i.precio);
+      const desembolsos = detalleUltimaFecha.map((i) => i.precio);
+      const netos = detalleUltimaFecha.map((i) => i.precioNeto).filter((n) => n != null);
       creadas.push(await upsertAlerta({
         tipo: 'diferencia_entre_cadenas',
         regla: 'diferencia_entre_cadenas_eur',
         productoId,
         valores: {
-          gap: Number((Math.max(...precios) - Math.min(...precios)).toFixed(2)),
+          gapDesembolso: Number((Math.max(...desembolsos) - Math.min(...desembolsos)).toFixed(2)),
+          gapNeto: netos.length ? Number((Math.max(...netos) - Math.min(...netos)).toFixed(2)) : null,
+          cruzaEuro: new Set(desembolsos.map((d) => Math.floor(d))).size > 1,
           tiendas: detalleUltimaFecha.map((i) => ({ tienda: i.tiendaNombre, cadena: i.cadenaNombre, precio: i.precio })),
         },
         fechaPrimera: fechasQueCumplen[0],
@@ -149,19 +175,25 @@ export const recalcularAlertas = async () => {
         const key = cat.tipoCategoria === 'piso' ? 'prima_piso' : 'prima_fortaleza';
         const umbralAlerta = config[`${key}_alerta`];
         const umbralSerio = config[`${key}_problema_serio`];
-        const puntos = matchPorTiendaYFecha(clienteObs, refObs);
-        const fechasAlerta = [];
-        const fechasSerio = [];
-        let ultima = null;
-        for (const { fecha, precioA: pCliente, precioB: pRef } of puntos.sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) {
+        const puntos = matchPorTiendaYFecha(clienteObs, refObs, 'precioNeto');
+        const puntosAlerta = [];
+        const puntosSerio = [];
+        for (const punto of puntos.sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) {
+          const { fecha, precioA: pCliente, precioB: pRef } = punto;
           const prima = (pCliente - pRef) / pRef;
-          ultima = { fecha, prima, pCliente, pRef };
-          if (umbralSerio && prima >= umbralSerio.min) fechasSerio.push(fecha);
-          else if (umbralAlerta && prima >= umbralAlerta.min) fechasAlerta.push(fecha);
+          const detalle = { fecha, prima, pCliente, pRef };
+          // Un mismo día puede dar más de un punto si el producto se vio en
+          // más de una tienda — el nivel más grave de ESE día manda, no
+          // "lo último que se procesó" (ver bug histórico: un punto que no
+          // califica podía pisar el resultado de uno que sí).
+          if (umbralSerio && prima >= umbralSerio.min) puntosSerio.push(detalle);
+          else if (umbralAlerta && prima >= umbralAlerta.min) puntosAlerta.push(detalle);
         }
-        const fechas = [...fechasSerio, ...fechasAlerta].sort();
+        const fechas = [...puntosSerio, ...puntosAlerta].map((p) => p.fecha).sort();
         if (fechas.length) {
-          const nivel = fechasSerio.length ? 'problema_serio' : 'alerta';
+          const nivel = puntosSerio.length ? 'problema_serio' : 'alerta';
+          const relevantes = puntosSerio.length ? puntosSerio : puntosAlerta;
+          const ultima = relevantes[relevantes.length - 1];
           creadas.push(await upsertAlerta({
             tipo: key,
             regla: `${key}_${nivel}`,
@@ -169,8 +201,8 @@ export const recalcularAlertas = async () => {
             valores: {
               nivel,
               primaPct: Number((ultima.prima * 100).toFixed(1)),
-              precioCliente: ultima.pCliente,
-              precioReferencia: ultima.pRef,
+              precioClienteNeto: Number(ultima.pCliente.toFixed(2)),
+              precioReferenciaNeto: Number(ultima.pRef.toFixed(2)),
               referenciaProductoId: referenciaId,
             },
             fechaPrimera: fechas[0],
@@ -184,26 +216,26 @@ export const recalcularAlertas = async () => {
       const liderObs = porProducto.get(cat.productoLiderId) || [];
       if (liderObs.length) {
         const umbral = config.dinero_sobre_la_mesa?.min ?? 0.15;
-        const puntos = matchPorTiendaYFecha(clienteObs, liderObs);
-        const fechasQueCumplen = [];
-        let ultima = null;
-        for (const { fecha, precioA: pCliente, precioB: pLider } of puntos.sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) {
+        const puntos = matchPorTiendaYFecha(clienteObs, liderObs, 'precioNeto');
+        const puntosQueCumplen = [];
+        for (const punto of puntos.sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) {
+          const { fecha, precioA: pCliente, precioB: pLider } = punto;
           const diff = (pLider - pCliente) / pLider;
-          ultima = { fecha, diff, pCliente, pLider };
-          if (diff >= umbral) fechasQueCumplen.push(fecha);
+          if (diff >= umbral) puntosQueCumplen.push({ fecha, diff, pCliente, pLider });
         }
-        if (fechasQueCumplen.length) {
+        if (puntosQueCumplen.length) {
+          const ultima = puntosQueCumplen[puntosQueCumplen.length - 1];
           creadas.push(await upsertAlerta({
             tipo: 'dinero_sobre_la_mesa',
             regla: 'dinero_sobre_la_mesa',
             productoId: cliente.id,
             valores: {
               diferenciaPct: Number((ultima.diff * 100).toFixed(1)),
-              precioCliente: ultima.pCliente,
-              precioLider: ultima.pLider,
+              precioClienteNeto: Number(ultima.pCliente.toFixed(2)),
+              precioLiderNeto: Number(ultima.pLider.toFixed(2)),
             },
-            fechaPrimera: fechasQueCumplen[0],
-            fechaUltima: fechasQueCumplen[fechasQueCumplen.length - 1],
+            fechaPrimera: puntosQueCumplen[0].fecha,
+            fechaUltima: ultima.fecha,
           }));
         }
       }
