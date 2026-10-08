@@ -42,6 +42,12 @@ router.get('/client/survey/:surveyId/analytics', authenticateClient, resultsCont
 // table (SOMENTE SEUS PRÓPRIOS SURVEYS)
 router.get('/client/survey/:surveyId/export', authenticateClient, resultsController.exportSurveyResponses);
 
+// Route for a regular client to ask AI about their OWN survey's results —
+// only works if that survey has aiEnabled (the seal set in CreateSurvey);
+// see results.client.ai-evaluation.controller.js's askAIAboutSurvey, which
+// already branches client vs client_admin access via verifyClientAccessWithPrivileges.
+router.post('/client/survey/:surveyId/ask-ai', authenticateClient, askAIAboutSurvey);
+
 // Route for client admin to get survey results with user scores
 router.get('/client/survey/:surveyId/results-with-scores', authenticateClientAdmin, resultsController.getSurveyResultsWithScores);
 

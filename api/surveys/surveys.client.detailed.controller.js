@@ -23,7 +23,7 @@ export const getMySurveys = async (req, res) => {
       order: [['created_at', 'DESC']],
       attributes: [
         'id', 'title', 'description', 'questions', 'expirationTime',
-        'status', 'accessToken', 'clientId', 'responseLimit', 'createdAt'
+        'status', 'accessToken', 'clientId', 'responseLimit', 'createdAt', 'aiEnabled'
       ],
       raw: false
     });
@@ -89,6 +89,7 @@ const buildSurveyStats = async (survey) => {
       responseCount,
       respondentCount,
       clientId: survey.clientId,
+      aiEnabled: !!survey.aiEnabled,
       isExpired: now > expirationTime,
       daysUntilExpiration: Math.ceil((expirationTime - now) / (1000 * 60 * 60 * 24)),
       responsePercentage: survey.responseLimit
@@ -107,6 +108,7 @@ const buildSurveyStats = async (survey) => {
       responseLimit: survey.responseLimit,
       responseCount: 0,
       clientId: survey.clientId,
+      aiEnabled: !!survey.aiEnabled,
       error: 'Error loading statistics'
     };
   }

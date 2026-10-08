@@ -58,6 +58,7 @@ export const createSurvey = async (req, res) => {
       expirationTime: survey.expirationTime,
       status: survey.status,
       responseLimit: survey.responseLimit,
+      aiEnabled: survey.aiEnabled,
       clientId: survey.clientId,
       createdAt: survey.createdAt,
       updatedAt: survey.updatedAt

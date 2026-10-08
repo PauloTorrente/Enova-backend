@@ -134,7 +134,14 @@ export const askAIAboutSurvey = async (req, res) => {
       return res.status(400).json({ message: 'La pregunta es demasiado larga (máximo 500 caracteres)' });
     }
 
-    await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
+    const survey = await verifyClientAccessWithPrivileges(surveyId, req.client?.id, req.client?.role);
+
+    // The per-survey opt-in seal set at creation time (CreateSurvey's
+    // AiAccessSeal) — only gates regular clients; client_admin keeps the
+    // unrestricted access it already had before this seal existed.
+    if (req.client?.role !== 'client_admin' && !survey.aiEnabled) {
+      return res.status(403).json({ message: 'Esta encuesta no tiene activado el acceso a IA.' });
+    }
 
     const results = await Result.findAll({ where: { surveyId }, order: [['id', 'ASC']] });
     if (!results.length) {

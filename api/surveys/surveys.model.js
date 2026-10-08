@@ -81,6 +81,17 @@ const Survey = sequelize.define('Survey', {
     defaultValue: 'standard',
     field: 'survey_type',
   },
+  // Opt-in set at creation time (CreateSurvey's "sello" toggle) — only
+  // surveys with this on show the "Consultar IA" button in Mis Encuestas.
+  // Independent from whether the client_admin side has configured
+  // ANTHROPIC_API_KEY at all (api/results/results.anthropic.util.js);
+  // this is the per-survey business decision, that's the deployment one.
+  aiEnabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'ai_enabled',
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,
