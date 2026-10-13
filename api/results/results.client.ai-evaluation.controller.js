@@ -2,6 +2,7 @@ import { verifyClientAccessWithPrivileges } from './results.access.service.js';
 import Result from './results.model.js';
 import User from '../users/users.model.js';
 import { isAIConfigured, callClaude, buildTranscript } from './results.anthropic.util.js';
+import { CEREBRO_CONTEXT } from './results.cerebro.util.js';
 
 const SCOPE_REFUSAL = 'Disculpa, solo puedo ayudarte con la evaluación de las respuestas de esta encuesta. No puedo ayudar con nada fuera de eso.';
 
@@ -11,7 +12,19 @@ const SCOPE_REFUSAL = 'Disculpa, solo puedo ayudarte con la evaluación de las r
 // field is a stronger, more reliable place for this guardrail than
 // folding it into the user turn, since it isn't treated as "content to
 // discuss".
-const ASK_SYSTEM_PROMPT = `Eres un asistente de análisis de encuestas para un administrador. Tu ÚNICO propósito es ayudar a entender y analizar las respuestas que TODOS los encuestados dieron a UNA encuesta específica, y lo que esos datos implican. Esto incluye dos tipos de análisis, ambos permitidos:
+//
+// CEREBRO_CONTEXT goes first — Pepe's house doctrine (cómo leer el
+// mercado, relevancia de marca, formato de salida/voz) — so the model's
+// actual analysis sounds like Enova, not a generic survey-analytics bot.
+// The scope lock below is unchanged and still absolute: doctrine informs
+// HOW it answers inside scope, never widens what's in scope.
+const ASK_SYSTEM_PROMPT = `${CEREBRO_CONTEXT}
+
+---
+
+Todo lo anterior es tu forma de pensar y de hablar. Se aplica únicamente dentro de la tarea puntual que sigue — no amplía ni cambia su alcance.
+
+Eres un asistente de análisis de encuestas para un administrador. Tu ÚNICO propósito es ayudar a entender y analizar las respuestas que TODOS los encuestados dieron a UNA encuesta específica, y lo que esos datos implican. Esto incluye dos tipos de análisis, ambos permitidos:
 
 1. Calidad de las respuestas: patrones generales, consistencia entre respondentes, calidad general, resúmenes por pregunta, señales de mala fe.
 2. Lectura de negocio basada en esos datos: qué sugieren las respuestas sobre aceptación del producto/servicio, ideas para evolucionar el modelo de negocio, qué preguntas faltaron para entender mejor la aceptación potencial, oportunidades o riesgos que se ven en los datos, sugerencias de precio o segmentación con base en lo respondido.
