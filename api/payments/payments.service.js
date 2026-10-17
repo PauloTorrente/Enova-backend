@@ -5,6 +5,7 @@ import {
   CURRENCY,
   DEFAULT_RESPONDENT_REWARD,
   DEFAULT_SURVEY_CREATION_FEE,
+  AI_ADVISOR_SURCHARGE,
   BASIC_PROFILE_COMPLETION_REWARD,
   FILTRO_PRELIMINAR_COMPLETION_REWARD,
 } from '../../config/paymentsConfig.js';
@@ -56,7 +57,7 @@ export const payRespondentForSurvey = async ({ userId, survey }) => {
 // actually decline). See the Thunder Client guide for what real
 // enforcement would need.
 export const chargeClientForSurveyCreation = async ({ clientId, survey }) => {
-  const amount = DEFAULT_SURVEY_CREATION_FEE;
+  const amount = DEFAULT_SURVEY_CREATION_FEE + (survey.aiEnabled ? AI_ADVISOR_SURCHARGE : 0);
 
   const client = await Client.findByPk(clientId);
   if (client) {

@@ -18,6 +18,7 @@ export const initializeAnalytics = (survey, results) => {
       totalUsers: uniqueUsers,
       responsesPerUser: uniqueUsers > 0 ? (results.length / uniqueUsers).toFixed(1) : '0',
       surveyTitle: survey.title,
+      aiEnabled: survey.aiEnabled,
       createdAt: survey.createdAt,
       expirationTime: survey.expirationTime,
       status: survey.status,

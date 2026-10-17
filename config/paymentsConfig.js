@@ -23,6 +23,14 @@ export const DEFAULT_RESPONDENT_REWARD = 5;
 // Charged to a client's credit balance for publishing one survey.
 export const DEFAULT_SURVEY_CREATION_FEE = 50;
 
+// Extra charge on top of DEFAULT_SURVEY_CREATION_FEE when a survey is
+// published with "Asesor Enova" on (Survey.aiEnabled — see
+// CreateSurvey/AiAccessSeal.jsx). Only the name changed from "consultoría
+// de IA" per Pepe's call ("Sólo le estamos cambiando el nombre"); it's
+// still the same cerebro-digital chat about the study's own results, not
+// a WhatsApp line to a human — that was explicitly ruled out.
+export const AI_ADVISOR_SURCHARGE = 300;
+
 // One-time reward for completing the basic profile (phone + gender —
 // same fields opina-cash's profile-completeness gate requires). This is
 // "completa tu registro y vas a ganar X" from the meeting — paid once,
