@@ -60,7 +60,7 @@ const Survey = sequelize.define('Survey', {
     unique: true,
   },
   // Techdemo payment scaffolding — how much (in the platform's currency,
-  // MXN for the Mexico launch) a respondent earns for completing THIS
+  // VES/Bolívares for opina-cash) a respondent earns for completing THIS
   // survey. Falls back to config/paymentsConfig.js's default when unset —
   // see api/payments/payments.service.js.
   rewardPerResponse: {

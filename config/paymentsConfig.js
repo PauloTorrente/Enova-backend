@@ -1,8 +1,15 @@
-// Techdemo pricing placeholders for the Mexico launch. These numbers are
-// NOT final — the business side still needs to define real per-response
-// and per-survey-creation pricing. They exist only so the payment
+// Techdemo pricing placeholders. These numbers are NOT final — the
+// business side still needs to define real per-response and
+// per-survey-creation pricing. They exist only so the payment
 // scaffolding in api/payments/ has something concrete to compute with.
-export const CURRENCY = 'MXN';
+// opina-cash pays respondents in Bolívares (VES) — Venezuela, not Mexico.
+// NOTE: this only relabels the respondent-reward ledger (PaymentTransaction
+// rows, opina-cash's wallet display). It does NOT touch the Conekta
+// client-topup integration (api/payments/conekta.*) — that's a real
+// Mexican payment gateway that only settles in MXN, a completely separate
+// flow (charging a client, not paying a respondent) that would need an
+// actual Venezuelan payment provider to really move money in VES.
+export const CURRENCY = 'VES';
 
 // Paid to a respondent's wallet for completing one survey (unless the
 // survey itself sets its own Survey.rewardPerResponse). This is the

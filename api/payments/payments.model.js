@@ -14,7 +14,11 @@ const PaymentTransaction = sequelize.define(
     kind: { type: DataTypes.STRING, allowNull: false }, // 'respondent_reward' | 'survey_creation_fee' | 'credit_topup' | 'basic_profile_completion'
     direction: { type: DataTypes.STRING, allowNull: false }, // 'credit' | 'debit'
     amount: { type: DataTypes.FLOAT, allowNull: false },
-    currency: { type: DataTypes.STRING, allowNull: false, defaultValue: 'MXN' },
+    // 'VES' (Bolívares) for respondent_reward/basic_profile_completion —
+    // see config/paymentsConfig.js#CURRENCY. credit_topup rows (Conekta)
+    // always set 'MXN' explicitly regardless of this default — that's a
+    // real Mexican gateway, a separate currency from the techdemo ledger.
+    currency: { type: DataTypes.STRING, allowNull: false, defaultValue: 'VES' },
     userId: { type: DataTypes.INTEGER, allowNull: true, field: 'user_id' },
     clientId: { type: DataTypes.INTEGER, allowNull: true, field: 'client_id' },
     surveyId: { type: DataTypes.INTEGER, allowNull: true, field: 'survey_id' },

@@ -1,6 +1,7 @@
 import SurgicalProfile from './profiling.model.js';
 import { saveSurgicalProfile } from './profiling.service.js';
 import User from '../users/users.model.js';
+import Survey from '../surveys/surveys.model.js';
 import * as paymentsService from '../payments/payments.service.js';
 import { verifyClientAccessWithPrivileges } from '../results/results.access.service.js';
 import {
@@ -90,6 +91,28 @@ export const getMySurgicalProfile = async (req, res) => {
   } catch (error) {
     console.error(`[profiling] getMySurgicalProfile failed (userId=${req.user?.userId}):`, error.message);
     res.status(500).json({ success: false, message: 'Failed to fetch profile' });
+  }
+};
+
+// GET /api/profiling/surgical/survey — which survey IS the (current)
+// Perfilación Quirúrgica, so a respondent-facing app can route someone
+// straight to "/survey/:accessToken" as their next step instead of
+// hardcoding one survey's token in frontend source (which would silently
+// go stale the day this survey gets recreated or swapped). Picks the
+// most recently created active one — there's meant to be exactly one at
+// a time, but this doesn't hard-fail if an old one was left active too.
+export const getActiveSurgicalProfilingSurvey = async (req, res) => {
+  try {
+    const survey = await Survey.findOne({
+      where: { surveyType: 'surgical_profiling', status: 'active' },
+      order: [['createdAt', 'DESC']],
+      attributes: ['id', 'accessToken', 'title', 'rewardPerResponse'],
+    });
+    if (!survey) return res.status(404).json({ success: false, message: 'No hay una Perfilación Quirúrgica activa todavía' });
+    res.status(200).json({ success: true, survey });
+  } catch (error) {
+    console.error('[profiling] getActiveSurgicalProfilingSurvey failed:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to fetch active survey' });
   }
 };
 
