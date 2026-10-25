@@ -31,7 +31,12 @@ const Result = sequelize.define('Result', {
     field: 'user_id', // Ensuring the correct column name in the database (snake_case)
   },
   question: {
-    type: DataTypes.STRING, // The question from the survey that was answered
+    // TEXT, not STRING (VARCHAR 255) — Estudio 7's "Lee esta idea" question
+    // embeds the full concept body (40-80 words, easily 300+ chars), and
+    // VARCHAR(255) made every response to it fail at insert time with
+    // "value too long for type character varying(255)" (a 500 on submit,
+    // not a validation error — the respondent had answered everything).
+    type: DataTypes.TEXT,
     allowNull: false, // Cannot be null, we need the question to store the response
   },
   // The question's stable questionId (as opposed to `question`, its
