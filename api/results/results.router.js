@@ -1,7 +1,7 @@
 import express from 'express';
 import * as resultsController from './results.controller.js';
 import { authenticateAdmin, authenticateUser, authenticateClient } from '../../middlewares/auth.middleware.js';
-import { authenticateClientAdmin } from '../../middlewares/client.auth.middleware.js';
+import { authenticateClientAdmin, authenticateClient as authenticateClientWithRole } from '../../middlewares/client.auth.middleware.js';
 import { evaluateRespondentWithAI, askAIAboutSurvey } from './results.client.ai-evaluation.controller.js';
 
 const router = express.Router(); 
@@ -24,29 +24,39 @@ router.get('/export/:surveyId', authenticateAdmin, resultsController.exportRespo
 // Route to get responses with user details (admin only)
 router.get('/survey/:surveyId/with-users', authenticateAdmin, resultsController.getSurveyResponsesWithUserDetails);
 
-// Route for clients to get responses for a specific survey (SOMENTE SEUS PRÓPRIOS SURVEYS)
-router.get('/client/survey/:surveyId', authenticateClient, resultsController.getResponsesBySurvey);
+// All five /client/survey/:surveyId/* routes below branch on
+// req.client.role inside their handler (verifyClientAccessWithPrivileges,
+// or getSurveyAnalytics's own clientRole check) to let a client_admin
+// through to ANY survey, not just their own — but the plain
+// authenticateClient (from auth.middleware.js) never sets req.client.role,
+// so that branch was always dead and a client_admin got "access denied" on
+// any survey that wasn't literally their own, same as a regular client.
+// authenticateClientWithRole (role + permissions) is the one that actually
+// supports it.
 
-// Route for clients to get responses for a specific question in a survey (SOMENTE SEUS PRÓPRIOS SURVEYS)
-router.get('/client/survey/:surveyId/question/:question', authenticateClient, resultsController.getResponsesByQuestion);
+// Route for clients to get responses for a specific survey (own, or any as client_admin)
+router.get('/client/survey/:surveyId', authenticateClientWithRole, resultsController.getResponsesBySurvey);
 
-// Route for clients to get responses with user details (SOMENTE SEUS PRÓPRIOS SURVEYS)
-router.get('/client/survey/:surveyId/with-users', authenticateClient, resultsController.getSurveyResponsesWithUserDetails);
+// Route for clients to get responses for a specific question in a survey (own, or any as client_admin)
+router.get('/client/survey/:surveyId/question/:question', authenticateClientWithRole, resultsController.getResponsesByQuestion);
 
-// Route for clients to get analytics for a survey (SOMENTE SEUS PRÓPRIOS SURVEYS)
-router.get('/client/survey/:surveyId/analytics', authenticateClient, resultsController.getSurveyAnalytics);
+// Route for clients to get responses with user details (own, or any as client_admin)
+router.get('/client/survey/:surveyId/with-users', authenticateClientWithRole, resultsController.getSurveyResponsesWithUserDetails);
+
+// Route for clients to get analytics for a survey (own, or any as client_admin)
+router.get('/client/survey/:surveyId/analytics', authenticateClientWithRole, resultsController.getSurveyAnalytics);
 
 // Route for clients to export their survey's responses as Excel (default),
 // CSV (?format=csv) — both one row per respondent with demographic columns —
 // or PDF (?format=pdf), a readable per-question report instead of a raw
-// table (SOMENTE SEUS PRÓPRIOS SURVEYS)
-router.get('/client/survey/:surveyId/export', authenticateClient, resultsController.exportSurveyResponses);
+// table (own, or any as client_admin)
+router.get('/client/survey/:surveyId/export', authenticateClientWithRole, resultsController.exportSurveyResponses);
 
 // Route for a regular client to ask AI about their OWN survey's results —
 // only works if that survey has aiEnabled (the seal set in CreateSurvey);
 // see results.client.ai-evaluation.controller.js's askAIAboutSurvey, which
 // already branches client vs client_admin access via verifyClientAccessWithPrivileges.
-router.post('/client/survey/:surveyId/ask-ai', authenticateClient, askAIAboutSurvey);
+router.post('/client/survey/:surveyId/ask-ai', authenticateClientWithRole, askAIAboutSurvey);
 
 // Route for client admin to get survey results with user scores
 router.get('/client/survey/:surveyId/results-with-scores', authenticateClientAdmin, resultsController.getSurveyResultsWithScores);

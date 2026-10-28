@@ -48,6 +48,7 @@ export const getAllSurveys = async (req, res) => {
       title: survey.title,
       description: survey.description,
       status: survey.status,
+      accessToken: survey.accessToken,
       responseLimit: survey.responseLimit,
       expirationTime: survey.expirationTime,
       createdAt: survey.createdAt,
